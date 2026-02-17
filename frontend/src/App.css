@@ -337,6 +337,10 @@ button.ghost {
   color: #ffd17e;
 }
 
+.status-dot.is-offline {
+  color: #ff9f9f;
+}
+
 .refresh {
   border: 0;
   border-radius: 12px;

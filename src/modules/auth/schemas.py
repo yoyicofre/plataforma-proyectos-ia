@@ -13,6 +13,10 @@ class AuthTokenResponse(BaseModel):
     expires_in_seconds: int
 
 
+class AuthLogoutResponse(BaseModel):
+    message: str = "Logout successful"
+
+
 class AuthLoginRequest(BaseModel):
     email: str = Field(min_length=5, max_length=320)
     access_key: str = Field(min_length=8, max_length=200)

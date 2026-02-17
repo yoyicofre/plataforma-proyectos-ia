@@ -62,9 +62,29 @@ type AuthTokenResponse = {
 type TabName = "overview" | "projects" | "costs" | "ideas" | "agents";
 type SourceName = "context" | "dashboard" | "costs";
 type SourceStatus = Record<SourceName, "idle" | "ok" | "error">;
+type ApiStatus = "unknown" | "online" | "offline";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
 const SESSION_TOKEN_KEY = "plataforma_ia_access_token";
+
+function resolveApiBaseUrl(): string {
+  const envUrl = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
+  if (envUrl) return envUrl.replace(/\/+$/, "");
+
+  if (typeof window !== "undefined") {
+    const { protocol, hostname } = window.location;
+    if (hostname.startsWith("app.")) {
+      return `${protocol}//api.${hostname.slice(4)}`;
+    }
+  }
+
+  return "http://127.0.0.1:8000";
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
+
+function apiUrl(path: string): string {
+  return `${API_BASE_URL}${path}`;
+}
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("es-CL", {
@@ -104,6 +124,7 @@ function App() {
   const [dashboard, setDashboard] = useState<MeDashboard | null>(null);
   const [costs, setCosts] = useState<CostSummary | null>(null);
   const [activeTab, setActiveTab] = useState<TabName>("overview");
+  const [apiStatus, setApiStatus] = useState<ApiStatus>("unknown");
   const [sourceStatus, setSourceStatus] = useState<SourceStatus>({
     context: "idle",
     dashboard: "idle",
@@ -138,12 +159,19 @@ function App() {
     };
 
     const costUrl = projectIdFilter
-      ? `${API_BASE_URL}/costs/summary?days=30&project_id=${projectIdFilter}`
-      : `${API_BASE_URL}/costs/summary?days=30`;
+      ? apiUrl(`/costs/summary?days=30&project_id=${projectIdFilter}`)
+      : apiUrl("/costs/summary?days=30");
+
+    try {
+      const healthRes = await fetch(apiUrl("/health"));
+      setApiStatus(healthRes.ok ? "online" : "offline");
+    } catch {
+      setApiStatus("offline");
+    }
 
     const [ctxRes, dashRes, costRes] = await Promise.allSettled([
-      fetch(`${API_BASE_URL}/me/context`, { headers }),
-      fetch(`${API_BASE_URL}/me/dashboard?limit=20`, { headers }),
+      fetch(apiUrl("/me/context"), { headers }),
+      fetch(apiUrl("/me/dashboard?limit=20"), { headers }),
       fetch(costUrl, { headers }),
     ]);
 
@@ -153,7 +181,7 @@ function App() {
 
       if (ctxRes.status === "fulfilled") {
         if (ctxRes.value.status === 401 || ctxRes.value.status === 403) {
-          logout();
+          await logout();
           setError("Sesion expirada. Ingresa nuevamente.");
           return;
         }
@@ -169,7 +197,7 @@ function App() {
 
       if (dashRes.status === "fulfilled") {
         if (dashRes.value.status === 401 || dashRes.value.status === 403) {
-          logout();
+          await logout();
           setError("Sesion expirada. Ingresa nuevamente.");
           return;
         }
@@ -185,7 +213,7 @@ function App() {
 
       if (costRes.status === "fulfilled") {
         if (costRes.value.status === 401 || costRes.value.status === 403) {
-          logout();
+          await logout();
           setError("Sesion expirada. Ingresa nuevamente.");
           return;
         }
@@ -206,6 +234,7 @@ function App() {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error";
       setError(`Error general al cargar datos: ${message}`);
+      setApiStatus("offline");
     } finally {
       setLoading(false);
     }
@@ -216,7 +245,7 @@ function App() {
     setAuthLoading(true);
     setAuthError("");
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+      const res = await fetch(apiUrl("/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), access_key: accessKey.trim() }),
@@ -225,6 +254,7 @@ function App() {
         throw new Error(`Login error ${res.status}`);
       }
       const data = (await res.json()) as AuthTokenResponse;
+      setApiStatus("online");
       sessionStorage.setItem(SESSION_TOKEN_KEY, data.access_token);
       setToken(data.access_token);
       setAccessKey("");
@@ -232,12 +262,28 @@ function App() {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error";
       setAuthError(message);
+      setApiStatus("offline");
     } finally {
       setAuthLoading(false);
     }
   }
 
-  function logout() {
+  async function logout() {
+    const currentToken = token.trim();
+    if (currentToken) {
+      try {
+        await fetch(apiUrl("/auth/logout"), {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${currentToken}`,
+            "Content-Type": "application/json",
+          },
+        });
+      } catch {
+        // best effort logout
+      }
+    }
+
     sessionStorage.removeItem(SESSION_TOKEN_KEY);
     setToken("");
     setContext(null);
@@ -246,6 +292,7 @@ function App() {
     setError("");
     setAuthError("");
     setActiveTab("overview");
+    setApiStatus("unknown");
     setSourceStatus({ context: "idle", dashboard: "idle", costs: "idle" });
   }
 
@@ -336,7 +383,7 @@ function App() {
           {context?.profile ? (
             <>
               <p>{context.profile.email ?? "Sin email"}</p>
-              <button className="ghost" onClick={logout}>
+              <button className="ghost" onClick={() => void logout()}>
                 Cerrar sesion
               </button>
             </>
@@ -353,7 +400,13 @@ function App() {
             <p>Vista ejecutiva para operar proyectos, agentes y costos de IA.</p>
           </div>
           <div className="topbar-actions">
-            <span className={`status-dot ${loading ? "is-loading" : "is-ready"}`}>{loading ? "Sincronizando" : "Online"}</span>
+            <span
+              className={`status-dot ${
+                loading ? "is-loading" : apiStatus === "online" ? "is-ready" : apiStatus === "offline" ? "is-offline" : ""
+              }`}
+            >
+              {loading ? "Sincronizando" : apiStatus === "online" ? "Online" : apiStatus === "offline" ? "Offline" : "Estado"}
+            </span>
             <button className="refresh" onClick={() => void loadData()} disabled={loading}>
               {loading ? "Actualizando..." : "Actualizar"}
             </button>

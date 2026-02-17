@@ -8,6 +8,7 @@ from src.core.errors import forbidden, not_found
 from src.core.security import User, create_access_token
 from src.modules.auth.schemas import (
     AuthLoginRequest,
+    AuthLogoutResponse,
     AuthTokenRequest,
     AuthTokenResponse,
     GlobalPermissionsMeOut,
@@ -110,3 +111,8 @@ def get_global_permissions_me(user: User) -> GlobalPermissionsMeOut:
         can_issue_dev_tokens=not is_prod and (is_admin or is_operator),
         can_manage_security=is_admin,
     )
+
+
+def logout_user(user: User) -> AuthLogoutResponse:
+    _ = user
+    return AuthLogoutResponse()
