@@ -63,3 +63,27 @@ El workflow `deploy-lambda.yml` soporta:
 ## Reuso para nuevos proyectos
 
 - Usar checklist base: `docs/operations/project-bootstrap-template.md`
+
+## Automatizacion local (PowerShell)
+
+Scripts disponibles:
+- `scripts/deploy_frontend_git.ps1`: `git add + commit + push`
+- `scripts/deploy_backend_full.ps1`: `load env + package layer + package + deploy lambda`
+- `scripts/release_full.ps1`: flujo completo frontend + backend + checks API
+
+Ejemplo release completo:
+
+```powershell
+cd "C:\ruta\project-template-fastapi"
+.\scripts\release_full.ps1 `
+  -FunctionName "plataforma-ia-api" `
+  -Region "us-east-1" `
+  -LayerVersionsToKeep 5 `
+  -CommitMessage "chore(release): full deploy"
+```
+
+Con Make:
+
+```powershell
+make full-release
+```

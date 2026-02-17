@@ -74,6 +74,7 @@ jobs:
           JWT_EXP_MINUTES: ${{ vars.JWT_EXP_MINUTES || '480' }}
           DEV_BOOTSTRAP_KEY: ${{ secrets.DEV_BOOTSTRAP_KEY }}
           PORTAL_ACCESS_KEY: ${{ secrets.PORTAL_ACCESS_KEY }}
+          CORS_ALLOW_ORIGINS: ${{ vars.CORS_ALLOW_ORIGINS || 'https://app.mktautomations.com,http://localhost:5173,http://127.0.0.1:5173' }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL_TEXT: ${{ vars.OPENAI_MODEL_TEXT || 'gpt-5.2' }}
           OPENAI_MODEL_IMAGE: ${{ vars.OPENAI_MODEL_IMAGE || 'gpt-image-1' }}

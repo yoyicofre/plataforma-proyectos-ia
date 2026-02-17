@@ -21,6 +21,10 @@ class Settings(BaseModel):
     jwt_exp_minutes: int = int(os.getenv("JWT_EXP_MINUTES", "480"))
     dev_bootstrap_key: str = os.getenv("DEV_BOOTSTRAP_KEY", "dev-bootstrap-key")
     portal_access_key: str = os.getenv("PORTAL_ACCESS_KEY", "")
+    cors_allow_origins_raw: str = os.getenv(
+        "CORS_ALLOW_ORIGINS",
+        "https://app.mktautomations.com,http://localhost:5173,http://127.0.0.1:5173",
+    )
 
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_model_text: str = os.getenv("OPENAI_MODEL_TEXT", "gpt-5.2")
@@ -59,6 +63,11 @@ class Settings(BaseModel):
             f"mysql+pymysql://{self.db_user}:{password}"
             f"@{self.db_host}:{self.db_port}/{self.db_name}"
         )
+
+    @property
+    def cors_allow_origins(self) -> list[str]:
+        origins = [o.strip() for o in self.cors_allow_origins_raw.split(",") if o.strip()]
+        return origins or ["*"]
 
     def validate_runtime_security(self) -> None:
         if not self.is_production:

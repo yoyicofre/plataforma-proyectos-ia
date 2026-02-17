@@ -30,5 +30,6 @@ def test_prod_accepts_strong_config() -> None:
         environment="prod",
         jwt_secret="a" * 48,
         dev_bootstrap_key="internal-disabled-key",
+        portal_access_key="portal-access-key-2026",
     )
     cfg.validate_runtime_security()

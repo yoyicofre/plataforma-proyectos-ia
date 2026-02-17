@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 
 from src.core.config import settings
 from src.core.logging import configure_logging
@@ -28,6 +29,20 @@ configure_logging(settings.log_level)
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name, version="0.1.0")
 
+    @app.middleware("http")
+    async def preflight_middleware(request: Request, call_next):
+        if request.method == "OPTIONS":
+            return Response(status_code=204)
+        return await call_next(request)
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_allow_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     # [agentops:routers-include:start]
     app.include_router(agent_catalog_router, prefix="/agents", tags=["agent-catalog"])
     app.include_router(agent_runs_router, prefix="/agent-runs", tags=["agent-runs"])
@@ -48,6 +63,11 @@ def create_app() -> FastAPI:
     app.include_router(projects_router, prefix="/projects", tags=["projects"])
     app.include_router(users_router, prefix="/users", tags=["users"])
     # [agentops:routers-include:end]
+
+    @app.options("/{full_path:path}", include_in_schema=False)
+    def options_catch_all(full_path: str) -> Response:
+        _ = full_path
+        return Response(status_code=204)
 
     return app
 
