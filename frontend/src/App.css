@@ -18,6 +18,90 @@
   grid-template-columns: 280px 1fr;
 }
 
+.auth-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 10% 15%, rgba(28, 124, 255, 0.2), transparent 28%),
+    radial-gradient(circle at 90% 80%, rgba(21, 185, 124, 0.2), transparent 28%),
+    linear-gradient(135deg, #02122e 0%, #031a43 45%, #07172f 100%);
+}
+
+.auth-card {
+  width: min(980px, 100%);
+  min-height: 520px;
+  border: 1px solid #1f3a68;
+  border-radius: 22px;
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  overflow: hidden;
+  background: rgba(5, 24, 57, 0.72);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+}
+
+.auth-form-side {
+  padding: 38px 42px;
+  background: rgba(2, 16, 40, 0.88);
+}
+
+.auth-form-side h1 {
+  margin: 0;
+  font-size: 2.2rem;
+  color: #f3f6ff;
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.auth-form-side p {
+  margin: 10px 0 24px;
+  color: #9fb3d7;
+}
+
+.auth-form-side label {
+  color: #b5c5e5;
+}
+
+.auth-form-side input {
+  color: #e8efff;
+  background: rgba(10, 30, 65, 0.65);
+  border: 1px solid #264b82;
+}
+
+.auth-form-side button {
+  margin-top: 10px;
+  background: linear-gradient(90deg, #2264ff 0%, #4ab0ff 100%);
+}
+
+.auth-brand-side {
+  display: grid;
+  place-content: center;
+  text-align: center;
+  gap: 14px;
+  padding: 28px;
+  background: linear-gradient(160deg, rgba(16, 54, 130, 0.62), rgba(12, 37, 89, 0.72));
+}
+
+.auth-brand-side .tag {
+  margin: 0;
+  color: #b8d5ff;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.auth-brand-side h2 {
+  margin: 0;
+  color: #eff5ff;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.auth-brand-side p {
+  margin: 0;
+  color: #c4d6f6;
+}
+
 .sidebar {
   padding: 20px 16px;
   border-right: 1px solid var(--line);
@@ -265,6 +349,14 @@ th {
 }
 
 @media (max-width: 1080px) {
+  .auth-card {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-brand-side {
+    min-height: 180px;
+  }
+
   .platform-shell {
     grid-template-columns: 1fr;
   }

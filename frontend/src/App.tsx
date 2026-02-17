@@ -55,7 +55,6 @@ function App() {
   const [token, setToken] = useState("");
   const [email, setEmail] = useState("");
   const [accessKey, setAccessKey] = useState("");
-  const [manualToken, setManualToken] = useState("");
   const [projectIdFilter, setProjectIdFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
@@ -139,14 +138,6 @@ function App() {
     }
   }
 
-  function loginWithManualToken(e: FormEvent) {
-    e.preventDefault();
-    if (!manualToken.trim()) return;
-    sessionStorage.setItem(SESSION_TOKEN_KEY, manualToken.trim());
-    setToken(manualToken.trim());
-    void loadData(manualToken.trim());
-  }
-
   function logout() {
     sessionStorage.removeItem(SESSION_TOKEN_KEY);
     setToken("");
@@ -156,6 +147,48 @@ function App() {
     setError("");
     setAuthError("");
     setActiveTab("overview");
+  }
+
+  if (!token) {
+    return (
+      <section className="auth-screen">
+        <div className="auth-card">
+          <article className="auth-form-side">
+            <h1>Acceder</h1>
+            <p>Bienvenido de nuevo. Ingresa para entrar a tu panel.</p>
+            <form onSubmit={loginWithEmail} className="stack">
+              <label htmlFor="email">Correo electronico</label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="usuario@empresa.com"
+                required
+              />
+              <label htmlFor="accessKey">Clave de acceso</label>
+              <input
+                id="accessKey"
+                type="password"
+                value={accessKey}
+                onChange={(e) => setAccessKey(e.target.value)}
+                placeholder="Clave interna"
+                required
+              />
+              <button type="submit" disabled={authLoading || !email || !accessKey}>
+                {authLoading ? "Ingresando..." : "Iniciar sesion"}
+              </button>
+            </form>
+            {authError ? <p className="error">{authError}</p> : null}
+          </article>
+          <article className="auth-brand-side">
+            <p className="tag">Plataforma IA</p>
+            <h2>WELCOME BACK!</h2>
+            <p>Panel operativo de proyectos, agentes y costos en tiempo real.</p>
+          </article>
+        </div>
+      </section>
+    );
   }
 
   return (
@@ -214,57 +247,7 @@ function App() {
           ) : null}
         </header>
 
-        {!token ? (
-          <section className="login-grid">
-            <article className="panel">
-              <h3>Ingresar con email</h3>
-              <p className="subtle">Usa tu email de usuario y la clave de acceso interna del portal.</p>
-              <form onSubmit={loginWithEmail} className="stack">
-                <label htmlFor="email">Email</label>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="usuario@empresa.com"
-                  required
-                />
-                <label htmlFor="accessKey">Clave de acceso</label>
-                <input
-                  id="accessKey"
-                  type="password"
-                  value={accessKey}
-                  onChange={(e) => setAccessKey(e.target.value)}
-                  placeholder="Clave interna"
-                  required
-                />
-                <button type="submit" disabled={authLoading || !email || !accessKey}>
-                  {authLoading ? "Ingresando..." : "Iniciar sesion"}
-                </button>
-              </form>
-              {authError ? <p className="error">{authError}</p> : null}
-            </article>
-
-            <article className="panel">
-              <h3>Ingresar con token JWT</h3>
-              <p className="subtle">Modo alternativo para operaciones tecnicas o pruebas.</p>
-              <form onSubmit={loginWithManualToken} className="stack">
-                <label htmlFor="manualToken">JWT token</label>
-                <textarea
-                  id="manualToken"
-                  value={manualToken}
-                  onChange={(e) => setManualToken(e.target.value)}
-                  placeholder="Pega aqui tu JWT"
-                  rows={5}
-                />
-                <button type="submit" disabled={!manualToken.trim()}>
-                  Usar token
-                </button>
-              </form>
-            </article>
-          </section>
-        ) : (
-          <>
+        <>
             {activeTab === "overview" ? (
               <section className="cards-3">
                 <article className="panel metric">
@@ -419,8 +402,7 @@ function App() {
                 </article>
               </section>
             ) : null}
-          </>
-        )}
+        </>
 
         {error && <p className="error floating-error">{error}</p>}
       </main>
