@@ -38,3 +38,13 @@ Estrategia recomendada:
 - El deploy elimina versiones antiguas del layer según retención (`LayerVersionsToKeep`, default `5`).
 - Para produccion, reemplazar Function URL publica por API Gateway + autenticacion.
 - Si luego conectas Lambda a VPC privada para RDS, agrega subnets/security groups en configuracion Lambda.
+
+## Presupuesto de latencia IA (GPT-5.2)
+
+Para reducir errores `503` por timeout en prompts largos, configurar:
+
+- `AI_HTTP_TIMEOUT_SECONDS`
+- `AI_TEXT_INPUT_CHAR_LIMIT`
+- `AI_SYSTEM_PROMPT_CHAR_LIMIT`
+- `AI_TEXT_DEFAULT_MAX_OUTPUT_TOKENS`
+- `AI_TEXT_HARD_MAX_OUTPUT_TOKENS`

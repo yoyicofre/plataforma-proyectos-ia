@@ -30,6 +30,11 @@ class Settings(BaseModel):
     openai_model_text: str = os.getenv("OPENAI_MODEL_TEXT", "gpt-5.2")
     openai_model_image: str = os.getenv("OPENAI_MODEL_IMAGE", "gpt-image-1")
     openai_base_url: str = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    ai_http_timeout_seconds: float = float(os.getenv("AI_HTTP_TIMEOUT_SECONDS", "20"))
+    ai_text_input_char_limit: int = int(os.getenv("AI_TEXT_INPUT_CHAR_LIMIT", "12000"))
+    ai_system_prompt_char_limit: int = int(os.getenv("AI_SYSTEM_PROMPT_CHAR_LIMIT", "4000"))
+    ai_text_default_max_output_tokens: int = int(os.getenv("AI_TEXT_DEFAULT_MAX_OUTPUT_TOKENS", "700"))
+    ai_text_hard_max_output_tokens: int = int(os.getenv("AI_TEXT_HARD_MAX_OUTPUT_TOKENS", "1200"))
 
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
     gemini_model_text: str = os.getenv("GEMINI_MODEL_TEXT", "gemini-3-pro-preview")

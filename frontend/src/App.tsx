@@ -825,7 +825,8 @@ function App() {
     const currentToken = token.trim();
     if (!currentToken || !iaProjectId.trim() || !iaPrompt.trim()) return;
 
-    const userMessage: TextIaMessage = { role: "user", content: iaPrompt.trim() };
+    const promptText = iaPrompt.trim();
+    const userMessage: TextIaMessage = { role: "user", content: promptText };
     const contextualPromptBlock = selectedIaSpecialty
       ? [
           "Contexto de especialidad:",
@@ -835,17 +836,17 @@ function App() {
           `- Moneda: ${iaCurrency || "no especificado"}`,
           `- Audiencia: ${iaAudience || "no especificado"}`,
           `- Nivel de detalle: ${iaDetailLevel || "intermedio"}`,
-          `- Datos/contexto adicional:\n${iaDataContext || "sin datos adicionales"}`,
+          `- Datos/contexto adicional:\n${(iaDataContext || "sin datos adicionales").slice(0, 3000)}`,
         ].join("\n")
       : "";
-    const history = [...iaMessages, userMessage]
-      .slice(-8)
-      .map((m) => `${m.role === "user" ? "Usuario" : "Asistente"}: ${m.content}`)
+    const history = iaMessages
+      .slice(-6)
+      .map((m) => `${m.role === "user" ? "Usuario" : "Asistente"}: ${m.content.slice(0, 700)}`)
       .join("\n");
     const promptForModel = [
       contextualPromptBlock,
       `Conversacion previa:\n${history}`,
-      `Mensaje actual del usuario:\n${iaPrompt.trim()}`,
+      `Mensaje actual del usuario:\n${promptText}`,
     ]
       .filter(Boolean)
       .join("\n\n");
@@ -865,6 +866,7 @@ function App() {
           system_prompt: iaSystemPrompt.trim() || null,
           provider_preference: iaProvider,
           model_name: iaModel.trim() || null,
+          max_output_tokens: 700,
         }),
       });
       if (!res.ok) throw new Error(await extractApiErrorMessage(res, "text-ia"));

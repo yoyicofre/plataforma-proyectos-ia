@@ -41,6 +41,18 @@ Si una clave fue compartida por chat/captura, asumir compromiso y rotar inmediat
 - `PORTAL_ACCESS_KEY` debe existir y tener al menos 12 caracteres.
 - Endpoint `POST /auth/token` deshabilitado en `prod`.
 
+## Variables recomendadas anti-timeout (Text IA)
+
+- `AI_HTTP_TIMEOUT_SECONDS=20`
+- `AI_TEXT_INPUT_CHAR_LIMIT=12000`
+- `AI_SYSTEM_PROMPT_CHAR_LIMIT=4000`
+- `AI_TEXT_DEFAULT_MAX_OUTPUT_TOKENS=700`
+- `AI_TEXT_HARD_MAX_OUTPUT_TOKENS=1200`
+
+Objetivo:
+- mantener llamadas IA dentro de ventana segura para API Gateway/Lambda
+- reducir 503 por respuestas muy extensas o prompts sobredimensionados
+
 ## Reuso para nuevos proyectos
 
 - Usar checklist base: `docs/operations/project-bootstrap-template.md`

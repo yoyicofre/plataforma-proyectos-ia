@@ -19,3 +19,7 @@ def conflict(detail: str = "Conflict") -> HTTPException:
 
 def forbidden(detail: str = "Forbidden") -> HTTPException:
     return HTTPException(status_code=403, detail=detail)
+
+
+def service_unavailable(detail: str = "Service unavailable") -> HTTPException:
+    return HTTPException(status_code=503, detail=detail)

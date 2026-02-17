@@ -3,11 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
+from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from src.core.config import settings
-from src.core.errors import bad_request
+from src.core.errors import bad_request, service_unavailable
 from src.core.logging import get_logger
 from src.core.security import User
 from src.modules.agent_runs.schemas import AgentRunCreate
@@ -21,6 +22,37 @@ from src.modules.ai_providers.schemas import (
 
 PROVIDERS = {"openai", "gemini"}
 logger = get_logger(__name__)
+
+
+def _trim_text(value: str | None, max_chars: int) -> str | None:
+    if value is None:
+        return None
+    normalized = " ".join(value.split())
+    if len(normalized) <= max_chars:
+        return normalized
+    return normalized[: max_chars - 32].rstrip() + " [truncated]"
+
+
+def _prepare_text_request(req: AiTextGenerateRequest) -> AiTextGenerateRequest:
+    prompt = _trim_text(req.prompt, settings.ai_text_input_char_limit) or ""
+    system_prompt = _trim_text(req.system_prompt, settings.ai_system_prompt_char_limit)
+
+    max_output_tokens = req.max_output_tokens
+    if max_output_tokens is None:
+        max_output_tokens = settings.ai_text_default_max_output_tokens
+    max_output_tokens = min(max_output_tokens, settings.ai_text_hard_max_output_tokens)
+
+    return AiTextGenerateRequest(
+        project_id=req.project_id,
+        agent_id=req.agent_id,
+        prompt=prompt,
+        system_prompt=system_prompt,
+        stage_id=req.stage_id,
+        provider_preference=req.provider_preference,
+        model_name=req.model_name,
+        temperature=req.temperature,
+        max_output_tokens=max_output_tokens,
+    )
 
 
 def _providers_order(preference: str) -> list[str]:
@@ -107,17 +139,25 @@ def _openai_text(req: AiTextGenerateRequest) -> dict[str, Any]:
     if req.max_output_tokens is not None:
         payload["max_output_tokens"] = req.max_output_tokens
 
-    with httpx.Client(timeout=120) as client:
-        res = client.post(
-            f"{settings.openai_base_url}/responses",
-            headers={
-                "Authorization": f"Bearer {settings.openai_api_key}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-        )
+    try:
+        with httpx.Client(timeout=settings.ai_http_timeout_seconds) as client:
+            res = client.post(
+                f"{settings.openai_base_url}/responses",
+                headers={
+                    "Authorization": f"Bearer {settings.openai_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+    except httpx.TimeoutException as exc:
+        raise service_unavailable("OpenAI timeout: request exceeded the configured provider timeout.") from exc
+    except httpx.HTTPError as exc:
+        raise service_unavailable(f"OpenAI connectivity error: {exc}") from exc
     if res.status_code >= 400:
-        raise bad_request(f"OpenAI text call failed: {res.status_code} {res.text[:300]}")
+        detail = f"OpenAI text call failed: {res.status_code} {res.text[:300]}"
+        if res.status_code in {408, 429} or res.status_code >= 500:
+            raise service_unavailable(detail)
+        raise bad_request(detail)
     data = res.json()
     text_value = data.get("output_text")
     if not text_value:
@@ -155,15 +195,23 @@ def _gemini_text(req: AiTextGenerateRequest) -> dict[str, Any]:
         if req.temperature is not None:
             payload["generationConfig"]["temperature"] = req.temperature
 
-    with httpx.Client(timeout=120) as client:
-        res = client.post(
-            f"{settings.gemini_base_url}/models/{model}:generateContent",
-            params={"key": settings.gemini_api_key},
-            headers={"Content-Type": "application/json"},
-            json=payload,
-        )
+    try:
+        with httpx.Client(timeout=settings.ai_http_timeout_seconds) as client:
+            res = client.post(
+                f"{settings.gemini_base_url}/models/{model}:generateContent",
+                params={"key": settings.gemini_api_key},
+                headers={"Content-Type": "application/json"},
+                json=payload,
+            )
+    except httpx.TimeoutException as exc:
+        raise service_unavailable("Gemini timeout: request exceeded the configured provider timeout.") from exc
+    except httpx.HTTPError as exc:
+        raise service_unavailable(f"Gemini connectivity error: {exc}") from exc
     if res.status_code >= 400:
-        raise bad_request(f"Gemini text call failed: {res.status_code} {res.text[:300]}")
+        detail = f"Gemini text call failed: {res.status_code} {res.text[:300]}"
+        if res.status_code in {408, 429} or res.status_code >= 500:
+            raise service_unavailable(detail)
+        raise bad_request(detail)
     data = res.json()
     candidates = data.get("candidates", [])
     text_parts: list[str] = []
@@ -191,17 +239,25 @@ def _openai_image(req: AiImageGenerateRequest) -> dict[str, Any]:
     if req.size:
         payload["size"] = req.size
 
-    with httpx.Client(timeout=120) as client:
-        res = client.post(
-            f"{settings.openai_base_url}/images/generations",
-            headers={
-                "Authorization": f"Bearer {settings.openai_api_key}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-        )
+    try:
+        with httpx.Client(timeout=settings.ai_http_timeout_seconds) as client:
+            res = client.post(
+                f"{settings.openai_base_url}/images/generations",
+                headers={
+                    "Authorization": f"Bearer {settings.openai_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+    except httpx.TimeoutException as exc:
+        raise service_unavailable("OpenAI image timeout: provider request exceeded timeout.") from exc
+    except httpx.HTTPError as exc:
+        raise service_unavailable(f"OpenAI image connectivity error: {exc}") from exc
     if res.status_code >= 400:
-        raise bad_request(f"OpenAI image call failed: {res.status_code} {res.text[:300]}")
+        detail = f"OpenAI image call failed: {res.status_code} {res.text[:300]}"
+        if res.status_code in {408, 429} or res.status_code >= 500:
+            raise service_unavailable(detail)
+        raise bad_request(detail)
     data = res.json()
     item = (data.get("data") or [{}])[0]
     return {
@@ -223,15 +279,23 @@ def _gemini_image(req: AiImageGenerateRequest) -> dict[str, Any]:
         "generationConfig": {"responseModalities": ["IMAGE", "TEXT"]},
     }
 
-    with httpx.Client(timeout=120) as client:
-        res = client.post(
-            f"{settings.gemini_base_url}/models/{model}:generateContent",
-            params={"key": settings.gemini_api_key},
-            headers={"Content-Type": "application/json"},
-            json=payload,
-        )
+    try:
+        with httpx.Client(timeout=settings.ai_http_timeout_seconds) as client:
+            res = client.post(
+                f"{settings.gemini_base_url}/models/{model}:generateContent",
+                params={"key": settings.gemini_api_key},
+                headers={"Content-Type": "application/json"},
+                json=payload,
+            )
+    except httpx.TimeoutException as exc:
+        raise service_unavailable("Gemini image timeout: provider request exceeded timeout.") from exc
+    except httpx.HTTPError as exc:
+        raise service_unavailable(f"Gemini image connectivity error: {exc}") from exc
     if res.status_code >= 400:
-        raise bad_request(f"Gemini image call failed: {res.status_code} {res.text[:300]}")
+        detail = f"Gemini image call failed: {res.status_code} {res.text[:300]}"
+        if res.status_code in {408, 429} or res.status_code >= 500:
+            raise service_unavailable(detail)
+        raise bad_request(detail)
     data = res.json()
     candidates = data.get("candidates", [])
     parts = ((candidates[0].get("content", {}) if candidates else {}) or {}).get("parts", [])
@@ -249,33 +313,41 @@ def _gemini_image(req: AiImageGenerateRequest) -> dict[str, Any]:
 
 
 def generate_text(db: Session, user: User, req: AiTextGenerateRequest) -> AiTextGenerateResponse:
+    prepared_req = _prepare_text_request(req)
     agent_id = _resolve_agent_id(db=db, project_id=req.project_id, requested_agent_id=req.agent_id)
     logger.info(
-        "ai_text_start user_id=%s project_id=%s agent_id=%s provider_pref=%s model_override=%s prompt_len=%s system_len=%s",
+        "ai_text_start user_id=%s project_id=%s agent_id=%s provider_pref=%s model_override=%s prompt_len=%s system_len=%s max_output_tokens=%s",
         int(user.id),
-        req.project_id,
+        prepared_req.project_id,
         agent_id,
-        req.provider_preference,
-        req.model_name,
-        len(req.prompt or ""),
-        len(req.system_prompt or ""),
+        prepared_req.provider_preference,
+        prepared_req.model_name,
+        len(prepared_req.prompt or ""),
+        len(prepared_req.system_prompt or ""),
+        prepared_req.max_output_tokens,
     )
     errors: list[str] = []
-    for provider in _providers_order(req.provider_preference):
+    error_statuses: list[int] = []
+    for provider in _providers_order(prepared_req.provider_preference):
         try:
-            logger.info("ai_text_provider_attempt provider=%s project_id=%s agent_id=%s", provider, req.project_id, agent_id)
-            result = _openai_text(req) if provider == "openai" else _gemini_text(req)
+            logger.info(
+                "ai_text_provider_attempt provider=%s project_id=%s agent_id=%s",
+                provider,
+                prepared_req.project_id,
+                agent_id,
+            )
+            result = _openai_text(prepared_req) if provider == "openai" else _gemini_text(prepared_req)
             run = create_agent_run(
                 db=db,
                 payload=AgentRunCreate(
-                    project_id=req.project_id,
+                    project_id=prepared_req.project_id,
                     agent_id=agent_id,
-                    stage_id=req.stage_id,
+                    stage_id=prepared_req.stage_id,
                     provider=result["provider"],
                     model_name=result["model_name"],
                     run_status="success",
                     trigger_source="api",
-                    input_payload={"prompt": req.prompt, "system_prompt": req.system_prompt},
+                    input_payload={"prompt": prepared_req.prompt, "system_prompt": prepared_req.system_prompt},
                     output_payload={"text": result["text"]},
                     token_input_count=result.get("token_input_count"),
                     token_output_count=result.get("token_output_count"),
@@ -292,11 +364,23 @@ def generate_text(db: Session, user: User, req: AiTextGenerateRequest) -> AiText
                 token_output_count=result.get("token_output_count"),
                 cost_usd=result.get("cost_usd"),
             )
-        except Exception as exc:
+        except HTTPException as exc:
+            error_statuses.append(exc.status_code)
             logger.exception(
-                "ai_text_provider_error provider=%s project_id=%s agent_id=%s error=%s",
+                "ai_text_provider_error provider=%s project_id=%s agent_id=%s status=%s error=%s",
                 provider,
-                req.project_id,
+                prepared_req.project_id,
+                agent_id,
+                exc.status_code,
+                str(exc),
+            )
+            errors.append(f"{provider}: {exc.detail}")
+        except Exception as exc:
+            error_statuses.append(503)
+            logger.exception(
+                "ai_text_provider_error provider=%s project_id=%s agent_id=%s status=503 error=%s",
+                provider,
+                prepared_req.project_id,
                 agent_id,
                 str(exc),
             )
@@ -305,25 +389,29 @@ def generate_text(db: Session, user: User, req: AiTextGenerateRequest) -> AiText
     failed_run = create_agent_run(
         db=db,
         payload=AgentRunCreate(
-            project_id=req.project_id,
+            project_id=prepared_req.project_id,
             agent_id=agent_id,
-            stage_id=req.stage_id,
+            stage_id=prepared_req.stage_id,
             provider=None,
-            model_name=req.model_name,
+            model_name=prepared_req.model_name,
             run_status="failed",
             trigger_source="api",
-            input_payload={"prompt": req.prompt, "system_prompt": req.system_prompt},
+            input_payload={"prompt": prepared_req.prompt, "system_prompt": prepared_req.system_prompt},
             error_message=" | ".join(errors)[:1000],
             created_by_user_id=int(user.id),
         ),
     )
     logger.error(
         "ai_text_all_providers_failed project_id=%s agent_id=%s run_id=%s errors=%s",
-        req.project_id,
+        prepared_req.project_id,
         agent_id,
         failed_run.agent_run_id,
         errors,
     )
+    if error_statuses and all(status >= 500 for status in error_statuses):
+        raise service_unavailable(
+            f"All providers failed due to upstream/unavailable conditions. run_id={failed_run.agent_run_id}. errors={errors}"
+        )
     raise bad_request(f"All providers failed. run_id={failed_run.agent_run_id}. errors={errors}")
 
 
