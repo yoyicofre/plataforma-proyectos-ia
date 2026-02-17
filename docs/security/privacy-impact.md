@@ -1,0 +1,13 @@
+# Privacy Impact (PIA)
+
+## Datos personales
+- ...
+
+## Base legal / consentimiento
+- ...
+
+## Retención / borrado
+- ...
+
+## Riesgos
+- ...

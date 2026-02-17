@@ -1,0 +1,177 @@
+@baseUrl = http://127.0.0.1:8000
+@email = seed_assign_replace@example.com
+@bootstrapKey = dev-bootstrap-key
+@projectId = 1
+@agentId = 1
+@assignmentId = 1
+
+### Health
+GET {{baseUrl}}/health
+
+### Issue JWT (dev only)
+POST {{baseUrl}}/auth/token
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "roles": ["admin"],
+  "bootstrap_key": "{{bootstrapKey}}"
+}
+
+### Save token from previous response
+@token = paste_token_here
+
+### Who am I
+GET {{baseUrl}}/users/me
+Authorization: Bearer {{token}}
+
+### Get my global permissions
+GET {{baseUrl}}/auth/permissions/me
+Authorization: Bearer {{token}}
+
+### Get my bootstrap context (profile + global perms + my projects)
+GET {{baseUrl}}/me/context
+Authorization: Bearer {{token}}
+
+### Get my dashboard KPI summary
+GET {{baseUrl}}/me/dashboard
+Authorization: Bearer {{token}}
+
+### Generate AI text
+POST {{baseUrl}}/ai/text/generate
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "project_id": {{projectId}},
+  "agent_id": {{agentId}},
+  "prompt": "Resume en 3 bullets el estado del proyecto",
+  "provider_preference": "auto"
+}
+
+### Generate AI image
+POST {{baseUrl}}/ai/image/generate
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "project_id": {{projectId}},
+  "agent_id": {{agentId}},
+  "prompt": "A modern dashboard UI concept for AI project management",
+  "provider_preference": "auto",
+  "size": "1024x1024"
+}
+
+### Costs summary
+GET {{baseUrl}}/costs/summary?days=30&project_id={{projectId}}
+Authorization: Bearer {{token}}
+
+### List projects
+GET {{baseUrl}}/projects/
+Authorization: Bearer {{token}}
+
+### Create project
+POST {{baseUrl}}/projects/
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "project_key": "proj_http_001",
+  "project_name": "Proyecto desde HTTP file",
+  "description": "Smoke flow",
+  "owner_user_id": 1,
+  "lifecycle_status": "draft"
+}
+
+### Get project stages
+GET {{baseUrl}}/projects/{{projectId}}/stages
+Authorization: Bearer {{token}}
+
+### Get project members
+GET {{baseUrl}}/projects/{{projectId}}/members
+Authorization: Bearer {{token}}
+
+### Get my project permissions
+GET {{baseUrl}}/projects/{{projectId}}/permissions/me
+Authorization: Bearer {{token}}
+
+### Add project member (admin only)
+POST {{baseUrl}}/projects/{{projectId}}/members
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "user_id": 2,
+  "member_role": "viewer"
+}
+
+### Update project member role (admin only)
+PATCH {{baseUrl}}/projects/{{projectId}}/members/2
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "member_role": "operator"
+}
+
+### Update stage
+PUT {{baseUrl}}/projects/{{projectId}}/stages/backend
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "stage_status": "in_progress",
+  "progress_percent": 30
+}
+
+### List agents
+GET {{baseUrl}}/agents/
+Authorization: Bearer {{token}}
+
+### Create agent
+POST {{baseUrl}}/agents/
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "agent_code": "agent_http_001",
+  "agent_name": "Agent HTTP",
+  "module_name": "projects",
+  "owner_team": "team-core",
+  "is_active": true,
+  "metadata_json": {"source": "http-smoke"}
+}
+
+### Create assignment
+POST {{baseUrl}}/project-agent-assignments/
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "project_id": {{projectId}},
+  "agent_id": {{agentId}},
+  "stage_id": 4,
+  "assignment_status": "active"
+}
+
+### Update assignment
+PATCH {{baseUrl}}/project-agent-assignments/{{assignmentId}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "assignment_status": "paused"
+}
+
+### Create agent run
+POST {{baseUrl}}/agent-runs/
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "project_id": {{projectId}},
+  "agent_id": {{agentId}},
+  "run_status": "queued",
+  "trigger_source": "api",
+  "input_payload": {"task": "smoke"}
+}

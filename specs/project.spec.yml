@@ -1,0 +1,24 @@
+project:
+  name: Project Template
+  slug: project_template
+  description: Template base para iniciar proyectos (AgentOps-ready).
+  stack:
+    backend: fastapi
+    database: mysql8
+    frontend: react
+modules:
+- name: health
+  prefix: ''
+  tags:
+  - health
+  description: Healthchecks del servicio
+- name: users
+  prefix: /users
+  tags:
+  - users
+  description: Usuarios y perfil
+roles:
+- admin
+- operator
+- viewer
+integrations: []

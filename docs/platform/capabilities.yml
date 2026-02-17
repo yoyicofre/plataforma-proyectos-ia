@@ -1,0 +1,25 @@
+# Fuente de verdad de capacidades.
+# Recomendación: mantener este archivo actualizado por release.
+
+modules:
+  - name: health
+    owner: team-core
+    capabilities:
+      - name: health-check
+        status: released
+        api:
+          - GET /health
+        permissions: []
+        version: "0.1.0"
+
+  - name: users
+    owner: team-core
+    capabilities:
+      - name: get-current-user
+        status: released
+        api:
+          - GET /users/me
+        permissions:
+          - roles: [admin]
+            actions: [read]
+        version: "0.1.0"

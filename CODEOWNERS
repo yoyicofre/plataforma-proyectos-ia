@@ -1,0 +1,5 @@
+# Ajusta a tus equipos/usuarios reales.
+
+/docs/ @your-org/team-docs
+/src/modules/users/ @your-org/team-core
+/src/modules/ @your-org/team-modules
