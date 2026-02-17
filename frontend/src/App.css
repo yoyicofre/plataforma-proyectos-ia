@@ -460,7 +460,8 @@ label {
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   border: 1px solid #2d4b7c;
   border-radius: 10px;
@@ -490,6 +491,16 @@ button:disabled {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 8px;
+}
+
+.inline-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+button.compact {
+  margin-top: 10px;
 }
 
 .flags {
@@ -534,6 +545,33 @@ button:disabled {
 .project-tile p,
 .project-tile small {
   color: #9cb3d8;
+}
+
+.stage-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.stage-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #274979;
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(12, 33, 66, 0.7);
+}
+
+.stage-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.stage-actions button {
+  padding: 8px 10px;
+  font-size: 0.82rem;
 }
 
 .tile-meta {
@@ -619,6 +657,15 @@ td {
   .cards-2,
   .split-grid {
     grid-template-columns: 1fr;
+  }
+
+  .inline-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .stage-row {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .topbar {

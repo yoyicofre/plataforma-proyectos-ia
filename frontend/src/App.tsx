@@ -53,6 +53,65 @@ type CostSummary = {
   by_model?: Array<{ provider: string | null; model_name: string | null; total_cost_usd: number; runs_count: number }>;
 };
 
+type ProjectItem = {
+  project_id: number;
+  project_key: string;
+  project_name: string;
+  description: string | null;
+  lifecycle_status: string;
+  owner_user_id: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type AgentItem = {
+  agent_id: number;
+  agent_code: string;
+  agent_name: string;
+  module_name: string;
+  owner_team: string;
+  default_model: string | null;
+  skill_ref: string | null;
+  is_active: boolean;
+  metadata_json: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type AgentRunItem = {
+  agent_run_id: number;
+  project_id: number;
+  agent_id: number;
+  provider: string | null;
+  model_name: string | null;
+  run_status: string;
+  trigger_source: string;
+  duration_ms: number | null;
+  cost_usd: number | null;
+  created_at: string;
+};
+
+type StageItem = {
+  project_stage_status_id: number;
+  project_id: number;
+  stage_id: number;
+  stage_code: string;
+  stage_name: string;
+  stage_order: number;
+  stage_status: string;
+  progress_percent: number;
+  updated_at: string;
+};
+
+type ProjectAgentAssignment = {
+  project_agent_assignment_id: number;
+  project_id: number;
+  agent_id: number;
+  stage_id: number | null;
+  assignment_status: string;
+  assigned_at: string;
+};
+
 type AuthTokenResponse = {
   access_token: string;
   token_type: string;
@@ -130,6 +189,35 @@ function App() {
     dashboard: "idle",
     costs: "idle",
   });
+  const [projectsData, setProjectsData] = useState<ProjectItem[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [projectError, setProjectError] = useState("");
+  const [newProjectKey, setNewProjectKey] = useState("");
+  const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectStatus, setNewProjectStatus] = useState("draft");
+
+  const [agentsData, setAgentsData] = useState<AgentItem[]>([]);
+  const [agentsLoading, setAgentsLoading] = useState(false);
+  const [agentsError, setAgentsError] = useState("");
+  const [newAgentCode, setNewAgentCode] = useState("");
+  const [newAgentName, setNewAgentName] = useState("");
+  const [newAgentModule, setNewAgentModule] = useState("planning");
+  const [newAgentTeam, setNewAgentTeam] = useState("Automation");
+  const [newAgentModel, setNewAgentModel] = useState("gpt-5.2");
+
+  const [assignments, setAssignments] = useState<ProjectAgentAssignment[]>([]);
+  const [assignmentProjectId, setAssignmentProjectId] = useState("");
+  const [assignmentAgentId, setAssignmentAgentId] = useState("");
+  const [assignmentError, setAssignmentError] = useState("");
+
+  const [runsData, setRunsData] = useState<AgentRunItem[]>([]);
+  const [runsLoading, setRunsLoading] = useState(false);
+  const [runsError, setRunsError] = useState("");
+
+  const [stageProjectId, setStageProjectId] = useState("");
+  const [stagesData, setStagesData] = useState<StageItem[]>([]);
+  const [stagesLoading, setStagesLoading] = useState(false);
+  const [stagesError, setStagesError] = useState("");
 
   const projectCards = useMemo(() => context?.projects ?? [], [context]);
   const providerTotal = useMemo(
@@ -145,6 +233,88 @@ function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const buildAuthHeaders = (currentToken: string) => ({
+    Authorization: `Bearer ${currentToken}`,
+    "Content-Type": "application/json",
+  });
+
+  async function loadProjects(providedToken?: string) {
+    const currentToken = (providedToken ?? token).trim();
+    if (!currentToken) return;
+    setProjectsLoading(true);
+    setProjectError("");
+    try {
+      const res = await fetch(apiUrl("/projects/?limit=100"), { headers: buildAuthHeaders(currentToken) });
+      if (!res.ok) throw new Error(`projects ${res.status}`);
+      setProjectsData((await res.json()) as ProjectItem[]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "error";
+      setProjectError(message);
+    } finally {
+      setProjectsLoading(false);
+    }
+  }
+
+  async function loadAgents(providedToken?: string) {
+    const currentToken = (providedToken ?? token).trim();
+    if (!currentToken) return;
+    setAgentsLoading(true);
+    setAgentsError("");
+    try {
+      const [agentsRes, assignmentsRes] = await Promise.all([
+        fetch(apiUrl("/agents/?limit=100"), { headers: buildAuthHeaders(currentToken) }),
+        fetch(apiUrl("/project-agent-assignments/?limit=100"), { headers: buildAuthHeaders(currentToken) }),
+      ]);
+      if (!agentsRes.ok) throw new Error(`agents ${agentsRes.status}`);
+      if (!assignmentsRes.ok) throw new Error(`assignments ${assignmentsRes.status}`);
+      setAgentsData((await agentsRes.json()) as AgentItem[]);
+      setAssignments((await assignmentsRes.json()) as ProjectAgentAssignment[]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "error";
+      setAgentsError(message);
+    } finally {
+      setAgentsLoading(false);
+    }
+  }
+
+  async function loadRuns(providedToken?: string) {
+    const currentToken = (providedToken ?? token).trim();
+    if (!currentToken) return;
+    setRunsLoading(true);
+    setRunsError("");
+    try {
+      const runsUrl = projectIdFilter
+        ? apiUrl(`/agent-runs/?limit=20&project_id=${projectIdFilter}`)
+        : apiUrl("/agent-runs/?limit=20");
+      const res = await fetch(runsUrl, { headers: buildAuthHeaders(currentToken) });
+      if (!res.ok) throw new Error(`agent-runs ${res.status}`);
+      setRunsData((await res.json()) as AgentRunItem[]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "error";
+      setRunsError(message);
+    } finally {
+      setRunsLoading(false);
+    }
+  }
+
+  async function loadStages(projectIdRaw: string, providedToken?: string) {
+    const currentToken = (providedToken ?? token).trim();
+    const projectId = projectIdRaw.trim();
+    if (!currentToken || !projectId) return;
+    setStagesLoading(true);
+    setStagesError("");
+    try {
+      const res = await fetch(apiUrl(`/projects/${projectId}/stages`), { headers: buildAuthHeaders(currentToken) });
+      if (!res.ok) throw new Error(`stages ${res.status}`);
+      setStagesData((await res.json()) as StageItem[]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "error";
+      setStagesError(message);
+    } finally {
+      setStagesLoading(false);
+    }
+  }
 
   async function loadData(providedToken?: string) {
     const currentToken = (providedToken ?? token).trim();
@@ -240,6 +410,20 @@ function App() {
     }
   }
 
+  useEffect(() => {
+    if (!token) return;
+    if (activeTab === "projects") {
+      void loadProjects();
+    } else if (activeTab === "agents") {
+      void loadAgents();
+    } else if (activeTab === "costs") {
+      void loadRuns();
+    } else if (activeTab === "ideas" && projectsData.length === 0) {
+      void loadProjects();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, token]);
+
   async function loginWithEmail(e: FormEvent) {
     e.preventDefault();
     setAuthLoading(true);
@@ -268,6 +452,104 @@ function App() {
     }
   }
 
+  async function createProject() {
+    const currentToken = token.trim();
+    if (!currentToken || !newProjectKey.trim() || !newProjectName.trim()) return;
+    setProjectError("");
+    try {
+      const res = await fetch(apiUrl("/projects/"), {
+        method: "POST",
+        headers: buildAuthHeaders(currentToken),
+        body: JSON.stringify({
+          project_key: newProjectKey.trim(),
+          project_name: newProjectName.trim(),
+          lifecycle_status: newProjectStatus,
+        }),
+      });
+      if (!res.ok) throw new Error(`create-project ${res.status}`);
+      setNewProjectKey("");
+      setNewProjectName("");
+      setNewProjectStatus("draft");
+      await Promise.all([loadProjects(), loadData()]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "error";
+      setProjectError(message);
+    }
+  }
+
+  async function createAgent() {
+    const currentToken = token.trim();
+    if (!currentToken || !newAgentCode.trim() || !newAgentName.trim()) return;
+    setAgentsError("");
+    try {
+      const res = await fetch(apiUrl("/agents/"), {
+        method: "POST",
+        headers: buildAuthHeaders(currentToken),
+        body: JSON.stringify({
+          agent_code: newAgentCode.trim(),
+          agent_name: newAgentName.trim(),
+          module_name: newAgentModule.trim(),
+          owner_team: newAgentTeam.trim(),
+          default_model: newAgentModel.trim() || null,
+          is_active: true,
+        }),
+      });
+      if (!res.ok) throw new Error(`create-agent ${res.status}`);
+      setNewAgentCode("");
+      setNewAgentName("");
+      await loadAgents();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "error";
+      setAgentsError(message);
+    }
+  }
+
+  async function assignAgentToProject() {
+    const currentToken = token.trim();
+    if (!currentToken || !assignmentProjectId.trim() || !assignmentAgentId.trim()) return;
+    setAssignmentError("");
+    try {
+      const res = await fetch(apiUrl("/project-agent-assignments/"), {
+        method: "POST",
+        headers: buildAuthHeaders(currentToken),
+        body: JSON.stringify({
+          project_id: Number(assignmentProjectId),
+          agent_id: Number(assignmentAgentId),
+          assignment_status: "active",
+        }),
+      });
+      if (!res.ok) throw new Error(`assign-agent ${res.status}`);
+      setAssignmentProjectId("");
+      setAssignmentAgentId("");
+      await loadAgents();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "error";
+      setAssignmentError(message);
+    }
+  }
+
+  async function updateStage(stage: StageItem, status: string, progressPercent: number) {
+    const currentToken = token.trim();
+    if (!currentToken) return;
+    setStagesError("");
+    try {
+      const res = await fetch(apiUrl(`/projects/${stage.project_id}/stages/${stage.stage_code}`), {
+        method: "PUT",
+        headers: buildAuthHeaders(currentToken),
+        body: JSON.stringify({
+          stage_status: status,
+          progress_percent: progressPercent,
+        }),
+      });
+      if (!res.ok) throw new Error(`update-stage ${res.status}`);
+      await loadStages(String(stage.project_id));
+      await loadData();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "error";
+      setStagesError(message);
+    }
+  }
+
   async function logout() {
     const currentToken = token.trim();
     if (currentToken) {
@@ -289,8 +571,18 @@ function App() {
     setContext(null);
     setDashboard(null);
     setCosts(null);
+    setProjectsData([]);
+    setAgentsData([]);
+    setAssignments([]);
+    setRunsData([]);
+    setStagesData([]);
     setError("");
     setAuthError("");
+    setProjectError("");
+    setAgentsError("");
+    setRunsError("");
+    setStagesError("");
+    setAssignmentError("");
     setActiveTab("overview");
     setApiStatus("unknown");
     setSourceStatus({ context: "idle", dashboard: "idle", costs: "idle" });
@@ -513,22 +805,64 @@ function App() {
 
         {activeTab === "projects" ? (
           <section className="cards-2">
-            {projectCards.map((project) => (
-              <article className="panel project-tile" key={project.project_id}>
-                <h4>{project.project_name}</h4>
-                <p>{project.project_key}</p>
-                <div className="tile-meta">
-                  <span>Rol: {project.member_role}</span>
-                  <span>Estado: {project.lifecycle_status}</span>
-                </div>
-                <small>Actualizado: {formatDate(project.updated_at)}</small>
-              </article>
-            ))}
-            {!projectCards.length ? (
-              <article className="panel">
-                <p>No hay proyectos para mostrar.</p>
-              </article>
-            ) : null}
+            <article className="panel">
+              <h4>Crear proyecto</h4>
+              <div className="stack">
+                <input
+                  placeholder="Project key (ej: MKT-AI-001)"
+                  value={newProjectKey}
+                  onChange={(e) => setNewProjectKey(e.target.value.toUpperCase())}
+                />
+                <input
+                  placeholder="Nombre del proyecto"
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                />
+                <select value={newProjectStatus} onChange={(e) => setNewProjectStatus(e.target.value)}>
+                  <option value="draft">draft</option>
+                  <option value="active">active</option>
+                  <option value="paused">paused</option>
+                  <option value="completed">completed</option>
+                  <option value="cancelled">cancelled</option>
+                </select>
+                <button onClick={() => void createProject()} disabled={projectsLoading}>
+                  Crear proyecto
+                </button>
+                <button className="ghost" onClick={() => void loadProjects()} disabled={projectsLoading}>
+                  {projectsLoading ? "Cargando..." : "Refrescar listado"}
+                </button>
+              </div>
+              {projectError ? <p className="error">{projectError}</p> : null}
+            </article>
+            <article className="panel">
+              <h4>Proyectos</h4>
+              {projectsData.length ? (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Key</th>
+                      <th>Nombre</th>
+                      <th>Estado</th>
+                      <th>Actualizado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {projectsData.map((project) => (
+                      <tr key={project.project_id}>
+                        <td>{project.project_id}</td>
+                        <td>{project.project_key}</td>
+                        <td>{project.project_name}</td>
+                        <td>{project.lifecycle_status}</td>
+                        <td>{formatDate(project.updated_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="subtle">Sin proyectos cargados.</p>
+              )}
+            </article>
           </section>
         ) : null}
 
@@ -546,6 +880,9 @@ function App() {
                   Recalcular
                 </button>
               </div>
+              <button className="ghost compact" onClick={() => void loadRuns()} disabled={runsLoading}>
+                {runsLoading ? "Cargando runs..." : "Cargar ultimas ejecuciones"}
+              </button>
             </article>
             <article className="panel">
               <h4>Resumen economico</h4>
@@ -553,34 +890,188 @@ function App() {
                 Total 30d: <b>{formatCurrency(costs?.total_cost_usd ?? 0)}</b>
               </p>
               <p className="subtle">Runs: {costs?.total_runs_count ?? 0}</p>
+              {runsError ? <p className="error">{runsError}</p> : null}
+              {runsData.length ? (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Run ID</th>
+                      <th>Project</th>
+                      <th>Agent</th>
+                      <th>Estado</th>
+                      <th>Costo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {runsData.slice(0, 8).map((run) => (
+                      <tr key={run.agent_run_id}>
+                        <td>{run.agent_run_id}</td>
+                        <td>{run.project_id}</td>
+                        <td>{run.agent_id}</td>
+                        <td>{run.run_status}</td>
+                        <td>{formatCurrency(run.cost_usd ?? 0)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : null}
             </article>
           </section>
         ) : null}
 
         {activeTab === "ideas" ? (
           <section className="cards-2">
-            <article className="panel coming-soon">
-              <h4>Ideas Lab</h4>
-              <p>Modulo para capturar, priorizar y convertir ideas en proyectos ejecutables.</p>
-              <ul className="flags">
-                <li>Captura estructurada de idea</li>
-                <li>Scoring de impacto y esfuerzo</li>
-                <li>Boton convertir a proyecto</li>
-              </ul>
+            <article className="panel">
+              <h4>Project Stages (ideas por etapa)</h4>
+              <p className="subtle">Carga y actualiza el avance real de etapas por proyecto.</p>
+              <select value={stageProjectId} onChange={(e) => setStageProjectId(e.target.value)}>
+                <option value="">Selecciona un proyecto</option>
+                {projectsData.map((project) => (
+                  <option key={project.project_id} value={project.project_id}>
+                    {project.project_key} - {project.project_name}
+                  </option>
+                ))}
+              </select>
+              <button onClick={() => void loadStages(stageProjectId)} disabled={stagesLoading || !stageProjectId}>
+                {stagesLoading ? "Cargando..." : "Cargar etapas"}
+              </button>
+              {stagesError ? <p className="error">{stagesError}</p> : null}
+            </article>
+            <article className="panel">
+              <h4>Etapas del proyecto</h4>
+              {stagesData.length ? (
+                <div className="stage-list">
+                  {stagesData.map((stage) => (
+                    <div key={stage.project_stage_status_id} className="stage-row">
+                      <div>
+                        <strong>
+                          {stage.stage_order}. {stage.stage_name}
+                        </strong>
+                        <p className="subtle">
+                          {stage.stage_code} - {stage.stage_status} - {Math.round(stage.progress_percent)}%
+                        </p>
+                      </div>
+                      <div className="stage-actions">
+                        <button onClick={() => void updateStage(stage, "in_progress", Math.max(stage.progress_percent, 20))}>
+                          In progress
+                        </button>
+                        <button onClick={() => void updateStage(stage, "blocked", stage.progress_percent)}>Blocked</button>
+                        <button onClick={() => void updateStage(stage, "done", 100)}>Done</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="subtle">Sin etapas cargadas.</p>
+              )}
             </article>
           </section>
         ) : null}
 
         {activeTab === "agents" ? (
           <section className="cards-2">
-            <article className="panel coming-soon">
-              <h4>Agent Operations</h4>
-              <p>Modulo para operar agentes por etapa, trazabilidad y costo por salida.</p>
-              <ul className="flags">
-                <li>Catalogo por modulo y proveedor</li>
-                <li>Monitoreo de ejecuciones</li>
-                <li>Calidad y costo por agente</li>
-              </ul>
+            <article className="panel">
+              <h4>Catalogo de agentes</h4>
+              <div className="stack">
+                <input
+                  placeholder="Agent code (ej: planner-core)"
+                  value={newAgentCode}
+                  onChange={(e) => setNewAgentCode(e.target.value)}
+                />
+                <input
+                  placeholder="Nombre de agente"
+                  value={newAgentName}
+                  onChange={(e) => setNewAgentName(e.target.value)}
+                />
+                <input
+                  placeholder="Modulo"
+                  value={newAgentModule}
+                  onChange={(e) => setNewAgentModule(e.target.value)}
+                />
+                <input
+                  placeholder="Equipo owner"
+                  value={newAgentTeam}
+                  onChange={(e) => setNewAgentTeam(e.target.value)}
+                />
+                <input
+                  placeholder="Modelo default"
+                  value={newAgentModel}
+                  onChange={(e) => setNewAgentModel(e.target.value)}
+                />
+                <button onClick={() => void createAgent()} disabled={agentsLoading}>
+                  Crear agente
+                </button>
+                <button className="ghost" onClick={() => void loadAgents()} disabled={agentsLoading}>
+                  {agentsLoading ? "Cargando..." : "Refrescar agentes"}
+                </button>
+              </div>
+              {agentsError ? <p className="error">{agentsError}</p> : null}
+            </article>
+            <article className="panel">
+              <h4>Asignar agente a proyecto</h4>
+              <div className="inline-2">
+                <input
+                  placeholder="Project ID"
+                  value={assignmentProjectId}
+                  onChange={(e) => setAssignmentProjectId(e.target.value)}
+                />
+                <input
+                  placeholder="Agent ID"
+                  value={assignmentAgentId}
+                  onChange={(e) => setAssignmentAgentId(e.target.value)}
+                />
+              </div>
+              <button onClick={() => void assignAgentToProject()}>Asignar</button>
+              {assignmentError ? <p className="error">{assignmentError}</p> : null}
+              {agentsData.length ? (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Code</th>
+                      <th>Nombre</th>
+                      <th>Modulo</th>
+                      <th>Activo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {agentsData.map((agent) => (
+                      <tr key={agent.agent_id}>
+                        <td>{agent.agent_id}</td>
+                        <td>{agent.agent_code}</td>
+                        <td>{agent.agent_name}</td>
+                        <td>{agent.module_name}</td>
+                        <td>{agent.is_active ? "si" : "no"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : null}
+              {assignments.length ? (
+                <>
+                  <h4>Asignaciones activas</h4>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Project</th>
+                        <th>Agent</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {assignments.slice(0, 10).map((asn) => (
+                        <tr key={asn.project_agent_assignment_id}>
+                          <td>{asn.project_agent_assignment_id}</td>
+                          <td>{asn.project_id}</td>
+                          <td>{asn.agent_id}</td>
+                          <td>{asn.assignment_status}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              ) : null}
             </article>
           </section>
         ) : null}
