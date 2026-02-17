@@ -111,6 +111,7 @@ $envVars = @{
   JWT_AUDIENCE = Get-EnvValueOrEmpty "JWT_AUDIENCE"
   JWT_EXP_MINUTES = Get-EnvValueOrEmpty "JWT_EXP_MINUTES"
   DEV_BOOTSTRAP_KEY = Get-EnvValueOrEmpty "DEV_BOOTSTRAP_KEY"
+  PORTAL_ACCESS_KEY = Get-EnvValueOrEmpty "PORTAL_ACCESS_KEY"
   OPENAI_API_KEY = Get-EnvValueOrEmpty "OPENAI_API_KEY"
   OPENAI_MODEL_TEXT = Get-EnvValueOrEmpty "OPENAI_MODEL_TEXT"
   OPENAI_MODEL_IMAGE = Get-EnvValueOrEmpty "OPENAI_MODEL_IMAGE"
@@ -170,7 +171,7 @@ $versions = $versions | Sort-Object -Descending
 $keep = $versions | Select-Object -First $LayerVersionsToKeep
 $toDelete = $versions | Where-Object { $_ -notin $keep -and $_ -ne $currentLayerVersion }
 foreach ($ver in $toDelete) {
-  Write-Host "Deleting old layer version: $LayerName:$ver"
+  Write-Host "Deleting old layer version: ${LayerName}:${ver}"
   & $aws lambda delete-layer-version `
     --layer-name $LayerName `
     --version-number $ver `
