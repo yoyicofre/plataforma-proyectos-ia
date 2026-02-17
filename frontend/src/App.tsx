@@ -122,6 +122,16 @@ type AiTextGenerateResponse = {
   cost_usd: number | null;
 };
 
+type AiImageGenerateResponse = {
+  run_id: number;
+  provider: string;
+  model_name: string;
+  mime_type: string | null;
+  image_base64: string | null;
+  image_url: string | null;
+  cost_usd: number | null;
+};
+
 type AuthTokenResponse = {
   access_token: string;
   token_type: string;
@@ -229,6 +239,16 @@ function App() {
   const [execLoading, setExecLoading] = useState(false);
   const [execError, setExecError] = useState("");
   const [execResult, setExecResult] = useState<AiTextGenerateResponse | null>(null);
+
+  const [imgProjectId, setImgProjectId] = useState("");
+  const [imgAgentId, setImgAgentId] = useState("");
+  const [imgProvider, setImgProvider] = useState("auto");
+  const [imgModel, setImgModel] = useState("");
+  const [imgSize, setImgSize] = useState("1024x1024");
+  const [imgPrompt, setImgPrompt] = useState("");
+  const [imgLoading, setImgLoading] = useState(false);
+  const [imgError, setImgError] = useState("");
+  const [imgResult, setImgResult] = useState<AiImageGenerateResponse | null>(null);
 
   const [runsData, setRunsData] = useState<AgentRunItem[]>([]);
   const [runsLoading, setRunsLoading] = useState(false);
@@ -585,6 +605,40 @@ function App() {
     }
   }
 
+  async function executeAgentImage() {
+    const currentToken = token.trim();
+    if (!currentToken || !imgProjectId.trim() || !imgAgentId.trim() || !imgPrompt.trim()) return;
+
+    setImgLoading(true);
+    setImgError("");
+    setImgResult(null);
+
+    try {
+      const res = await fetch(apiUrl("/ai/image/generate"), {
+        method: "POST",
+        headers: buildAuthHeaders(currentToken),
+        body: JSON.stringify({
+          project_id: Number(imgProjectId),
+          agent_id: Number(imgAgentId),
+          prompt: imgPrompt.trim(),
+          provider_preference: imgProvider,
+          model_name: imgModel.trim() || null,
+          size: imgSize.trim() || "1024x1024",
+        }),
+      });
+      if (!res.ok) throw new Error(`execute-image ${res.status}`);
+      const data = (await res.json()) as AiImageGenerateResponse;
+      setImgResult(data);
+
+      await Promise.all([loadData(), loadRuns(), loadAgents()]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "error";
+      setImgError(message);
+    } finally {
+      setImgLoading(false);
+    }
+  }
+
   async function updateStage(stage: StageItem, status: string, progressPercent: number) {
     const currentToken = token.trim();
     if (!currentToken) return;
@@ -648,6 +702,14 @@ function App() {
     setExecSystemPrompt("");
     setExecError("");
     setExecResult(null);
+    setImgProjectId("");
+    setImgAgentId("");
+    setImgProvider("auto");
+    setImgModel("");
+    setImgSize("1024x1024");
+    setImgPrompt("");
+    setImgError("");
+    setImgResult(null);
     setActiveTab("overview");
     setApiStatus("unknown");
     setSourceStatus({ context: "idle", dashboard: "idle", costs: "idle" });
@@ -1152,6 +1214,68 @@ function App() {
                     <strong>Costo:</strong> {formatCurrency(execResult.cost_usd ?? 0)}
                   </p>
                   <pre>{execResult.text || "(sin texto)"}</pre>
+                </div>
+              ) : null}
+
+              <h4>Generar imagen (IA real)</h4>
+              <div className="stack">
+                <div className="inline-2">
+                  <select value={imgProjectId} onChange={(e) => setImgProjectId(e.target.value)}>
+                    <option value="">Project ID</option>
+                    {projectsData.map((project) => (
+                      <option key={project.project_id} value={project.project_id}>
+                        {project.project_id} - {project.project_key}
+                      </option>
+                    ))}
+                  </select>
+                  <select value={imgAgentId} onChange={(e) => setImgAgentId(e.target.value)}>
+                    <option value="">Agent ID</option>
+                    {agentsData.map((agent) => (
+                      <option key={agent.agent_id} value={agent.agent_id}>
+                        {agent.agent_id} - {agent.agent_code}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="inline-2">
+                  <select value={imgProvider} onChange={(e) => setImgProvider(e.target.value)}>
+                    <option value="auto">auto</option>
+                    <option value="openai">openai</option>
+                    <option value="gemini">gemini</option>
+                  </select>
+                  <input placeholder="Model override (opcional)" value={imgModel} onChange={(e) => setImgModel(e.target.value)} />
+                </div>
+                <div className="inline-2">
+                  <input placeholder="Size (1024x1024)" value={imgSize} onChange={(e) => setImgSize(e.target.value)} />
+                  <span className="subtle">Se registra costo y run automaticamente</span>
+                </div>
+                <textarea
+                  rows={4}
+                  placeholder="Prompt de imagen"
+                  value={imgPrompt}
+                  onChange={(e) => setImgPrompt(e.target.value)}
+                />
+                <button onClick={() => void executeAgentImage()} disabled={imgLoading || !imgProjectId || !imgAgentId || !imgPrompt.trim()}>
+                  {imgLoading ? "Generando..." : "Generar imagen"}
+                </button>
+              </div>
+              {imgError ? <p className="error">{imgError}</p> : null}
+              {imgResult ? (
+                <div className="execution-result">
+                  <p>
+                    <strong>Run:</strong> {imgResult.run_id} | <strong>Provider:</strong> {imgResult.provider} |{" "}
+                    <strong>Model:</strong> {imgResult.model_name} | <strong>Costo:</strong> {formatCurrency(imgResult.cost_usd ?? 0)}
+                  </p>
+                  {imgResult.image_url ? (
+                    <img className="generated-image" src={imgResult.image_url} alt="Generated output" />
+                  ) : null}
+                  {!imgResult.image_url && imgResult.image_base64 ? (
+                    <img
+                      className="generated-image"
+                      src={`data:${imgResult.mime_type ?? "image/png"};base64,${imgResult.image_base64}`}
+                      alt="Generated output"
+                    />
+                  ) : null}
                 </div>
               ) : null}
 

@@ -601,6 +601,15 @@ button.compact {
   font-size: 0.84rem;
 }
 
+.generated-image {
+  margin-top: 8px;
+  width: 100%;
+  max-width: 460px;
+  border-radius: 12px;
+  border: 1px solid #2b4d7a;
+  display: block;
+}
+
 .tile-meta {
   display: grid;
   gap: 4px;
