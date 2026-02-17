@@ -174,6 +174,16 @@ type IaSavedOutputOut = {
   content: string;
 };
 
+type IaTextSpecialty = {
+  code: string;
+  name: string;
+  description: string;
+  system_prompt_template: string;
+  recommended_provider: string;
+  recommended_model: string | null;
+  tags: string[];
+};
+
 type TabName = "overview" | "projects" | "costs" | "ideas" | "agents" | "ia_generator";
 type SourceName = "context" | "dashboard" | "costs";
 type SourceStatus = Record<SourceName, "idle" | "ok" | "error">;
@@ -306,6 +316,16 @@ function App() {
   const [iaProvider, setIaProvider] = useState("auto");
   const [iaModel, setIaModel] = useState("");
   const [iaSystemPrompt, setIaSystemPrompt] = useState("");
+  const [iaSpecialtyCode, setIaSpecialtyCode] = useState("");
+  const [iaSpecialties, setIaSpecialties] = useState<IaTextSpecialty[]>([]);
+  const [iaSpecialtiesLoading, setIaSpecialtiesLoading] = useState(false);
+  const [iaSpecialtiesError, setIaSpecialtiesError] = useState("");
+  const [iaObjective, setIaObjective] = useState("");
+  const [iaPeriod, setIaPeriod] = useState("");
+  const [iaCurrency, setIaCurrency] = useState("USD");
+  const [iaAudience, setIaAudience] = useState("Direccion");
+  const [iaDetailLevel, setIaDetailLevel] = useState("intermedio");
+  const [iaDataContext, setIaDataContext] = useState("");
   const [iaPrompt, setIaPrompt] = useState("");
   const [iaMessages, setIaMessages] = useState<TextIaMessage[]>([]);
   const [iaConversationId, setIaConversationId] = useState<number | null>(null);
@@ -534,6 +554,9 @@ function App() {
       if (agentsData.length === 0) {
         void loadAgents();
       }
+      if (iaSpecialties.length === 0) {
+        void loadIaSpecialties();
+      }
       void loadIaSavedOutputs();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -705,6 +728,42 @@ function App() {
     }
   }
 
+  async function loadIaSpecialties(providedToken?: string) {
+    const currentToken = (providedToken ?? token).trim();
+    if (!currentToken) return;
+    setIaSpecialtiesLoading(true);
+    setIaSpecialtiesError("");
+    try {
+      const res = await fetch(apiUrl("/ia/text-specialties"), {
+        headers: buildAuthHeaders(currentToken),
+      });
+      if (!res.ok) throw new Error(await extractApiErrorMessage(res, "ia-specialties"));
+      const data = (await res.json()) as IaTextSpecialty[];
+      setIaSpecialties(data);
+      if (!iaSpecialtyCode && data.length > 0) {
+        setIaSpecialtyCode(data[0].code);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "error";
+      setIaSpecialtiesError(message);
+      setIaSpecialties([]);
+    } finally {
+      setIaSpecialtiesLoading(false);
+    }
+  }
+
+  const selectedIaSpecialty = useMemo(
+    () => iaSpecialties.find((x) => x.code === iaSpecialtyCode) ?? null,
+    [iaSpecialties, iaSpecialtyCode],
+  );
+
+  function applySelectedSpecialtyTemplate() {
+    if (!selectedIaSpecialty) return;
+    setIaSystemPrompt(selectedIaSpecialty.system_prompt_template);
+    setIaProvider(selectedIaSpecialty.recommended_provider || "auto");
+    setIaModel(selectedIaSpecialty.recommended_model ?? "");
+  }
+
   async function ensureIaConversation(providedToken?: string): Promise<number> {
     const currentToken = (providedToken ?? token).trim();
     if (!currentToken) throw new Error("Missing token");
@@ -767,11 +826,29 @@ function App() {
     if (!currentToken || !iaProjectId.trim() || !iaPrompt.trim()) return;
 
     const userMessage: TextIaMessage = { role: "user", content: iaPrompt.trim() };
+    const contextualPromptBlock = selectedIaSpecialty
+      ? [
+          "Contexto de especialidad:",
+          `- Especialidad: ${selectedIaSpecialty.name}`,
+          `- Objetivo de negocio: ${iaObjective || "no especificado"}`,
+          `- Periodo: ${iaPeriod || "no especificado"}`,
+          `- Moneda: ${iaCurrency || "no especificado"}`,
+          `- Audiencia: ${iaAudience || "no especificado"}`,
+          `- Nivel de detalle: ${iaDetailLevel || "intermedio"}`,
+          `- Datos/contexto adicional:\n${iaDataContext || "sin datos adicionales"}`,
+        ].join("\n")
+      : "";
     const history = [...iaMessages, userMessage]
       .slice(-8)
       .map((m) => `${m.role === "user" ? "Usuario" : "Asistente"}: ${m.content}`)
       .join("\n");
-    const promptForModel = `Conversacion previa:\n${history}\n\nMensaje actual del usuario:\n${iaPrompt.trim()}`;
+    const promptForModel = [
+      contextualPromptBlock,
+      `Conversacion previa:\n${history}`,
+      `Mensaje actual del usuario:\n${iaPrompt.trim()}`,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
 
     setIaLoading(true);
     setIaError("");
@@ -1605,6 +1682,56 @@ function App() {
                     ))}
                   </select>
                 </div>
+
+                <div className="inline-2">
+                  <select value={iaSpecialtyCode} onChange={(e) => setIaSpecialtyCode(e.target.value)}>
+                    <option value="">Especialidad IA</option>
+                    {iaSpecialties.map((specialty) => (
+                      <option key={specialty.code} value={specialty.code}>
+                        {specialty.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button className="ghost" onClick={applySelectedSpecialtyTemplate} disabled={!selectedIaSpecialty}>
+                    Aplicar prompt maestro
+                  </button>
+                </div>
+                {selectedIaSpecialty ? (
+                  <div className="specialty-card">
+                    <p className="specialty-title">{selectedIaSpecialty.name}</p>
+                    <p className="subtle">{selectedIaSpecialty.description}</p>
+                    <p className="subtle">
+                      Recomendado: {selectedIaSpecialty.recommended_provider}
+                      {selectedIaSpecialty.recommended_model ? ` / ${selectedIaSpecialty.recommended_model}` : ""}
+                    </p>
+                  </div>
+                ) : null}
+                {iaSpecialtiesLoading ? <p className="subtle">Cargando especialidades IA...</p> : null}
+                {iaSpecialtiesError ? <p className="error">{iaSpecialtiesError}</p> : null}
+
+                <div className="inline-2">
+                  <input
+                    placeholder="Objetivo de negocio"
+                    value={iaObjective}
+                    onChange={(e) => setIaObjective(e.target.value)}
+                  />
+                  <input placeholder="Periodo (ej: Ene 2026)" value={iaPeriod} onChange={(e) => setIaPeriod(e.target.value)} />
+                </div>
+                <div className="inline-3">
+                  <input placeholder="Moneda (USD/CLP)" value={iaCurrency} onChange={(e) => setIaCurrency(e.target.value)} />
+                  <input placeholder="Audiencia" value={iaAudience} onChange={(e) => setIaAudience(e.target.value)} />
+                  <select value={iaDetailLevel} onChange={(e) => setIaDetailLevel(e.target.value)}>
+                    <option value="resumen">resumen</option>
+                    <option value="intermedio">intermedio</option>
+                    <option value="experto">experto</option>
+                  </select>
+                </div>
+                <textarea
+                  rows={3}
+                  placeholder="Datos/contexto adicional (tablas, notas, cifras)"
+                  value={iaDataContext}
+                  onChange={(e) => setIaDataContext(e.target.value)}
+                />
 
                 <div className="inline-2">
                   <select value={iaProvider} onChange={(e) => setIaProvider(e.target.value)}>

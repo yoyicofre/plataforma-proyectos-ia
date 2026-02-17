@@ -66,3 +66,13 @@ class IaSavedOutputOut(BaseModel):
     provider: str | None
     model_name: str | None
     content: str
+
+
+class IaTextSpecialtyOut(BaseModel):
+    code: str
+    name: str
+    description: str
+    system_prompt_template: str
+    recommended_provider: str
+    recommended_model: str | None = None
+    tags: list[str]

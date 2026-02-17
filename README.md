@@ -189,12 +189,14 @@ DDL base:
 - `POST /ia/conversations/{conversation_id}/messages`
 - `POST /ia/messages/{message_id}/save`
 - `GET /ia/saved-outputs`
+- `GET /ia/text-specialties`
 - `GET /costs/summary`
 
 Migraciones DB:
 
 - `database/mysql/001_init_plataformaIa.sql`
 - `database/mysql/002_agent_runs_provider_model.sql`
+- `database/mysql/003_ia_generator_iterations.sql`
 
 Deploy frontend en S3:
 
@@ -259,3 +261,4 @@ Reglas:
 
 - `Generador IA > Text IA` (persistencia bajo decision del usuario):
   - `docs/modules/ia_generator/iteration-persistence-spec.md`
+  - `docs/modules/ia_generator/agent-specializations-roadmap.md`

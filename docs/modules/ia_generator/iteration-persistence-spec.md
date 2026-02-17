@@ -143,3 +143,9 @@ Notas:
   - persistir mensaje
   - guardar salida
   - listar guardados.
+
+## 7) Relacion con agentes especializados
+
+- El flujo de persistencia aplica igual para cualquier especialidad de `Text IA`.
+- Catalogo de especialidades y prompts maestros:
+  - `docs/modules/ia_generator/agent-specializations-roadmap.md`

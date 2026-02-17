@@ -10,9 +10,68 @@ from src.modules.ia_generator.schemas import (
     IaMessageCreate,
     IaMessageOut,
     IaSavedOutputOut,
+    IaTextSpecialtyOut,
 )
 
 ALLOWED_MESSAGE_ROLES = {"system", "user", "assistant"}
+
+TEXT_SPECIALTIES: list[IaTextSpecialtyOut] = [
+    IaTextSpecialtyOut(
+        code="data_analyst_finance",
+        name="Data Analyst (Economia/Contabilidad)",
+        description="Analisis financiero ejecutivo con foco en KPIs, riesgos y recomendaciones accionables.",
+        system_prompt_template=(
+            "Eres un Data Analyst Senior especializado en economia, finanzas y contabilidad gerencial. "
+            "Tu tarea es convertir informacion de negocio en decisiones accionables para direccion.\n\n"
+            "Reglas:\n"
+            "1) Prioriza claridad ejecutiva y precision numerica.\n"
+            "2) Si faltan datos, no inventes: declara supuestos explicitos.\n"
+            "3) Destaca variaciones relevantes, outliers, tendencias y riesgos.\n"
+            "4) Propone acciones concretas con impacto esperado.\n"
+            "5) Estructura la respuesta con: Resumen ejecutivo, KPIs clave, Hallazgos, Riesgos, Recomendaciones, Supuestos.\n"
+            "6) Responde en espanol salvo que el usuario pida otro idioma."
+        ),
+        recommended_provider="openai",
+        recommended_model="gpt-5.2",
+        tags=["finanzas", "kpis", "contabilidad", "ejecutivo"],
+    ),
+    IaTextSpecialtyOut(
+        code="travel_planner",
+        name="Travel Planner (Vuelos y Hospedaje)",
+        description="Arma propuestas de viaje optimizando costo, tiempos y restricciones.",
+        system_prompt_template=(
+            "Eres un asesor de viajes corporativos. Entrega propuestas comparativas de vuelos/hospedaje "
+            "con criterios de costo total, tiempos y riesgos operativos. Si faltan restricciones, pide aclaraciones."
+        ),
+        recommended_provider="gemini",
+        recommended_model="gemini-3-pro-preview",
+        tags=["viajes", "itinerario", "costos", "logistica"],
+    ),
+    IaTextSpecialtyOut(
+        code="image_prompt_designer",
+        name="Image Prompt Designer",
+        description="Convierte objetivos de marketing en prompts visuales de alta calidad.",
+        system_prompt_template=(
+            "Eres un prompt engineer visual senior. Convierte briefs en prompts para generacion de imagen con "
+            "estilo, composicion, iluminacion, camara, color y variantes A/B listos para produccion."
+        ),
+        recommended_provider="openai",
+        recommended_model="gpt-5.2",
+        tags=["imagen", "marketing", "creatividad", "prompt-engineering"],
+    ),
+    IaTextSpecialtyOut(
+        code="video_script_strategist",
+        name="Video Script Strategist",
+        description="Genera guiones y estructura narrativa para videos de conversion.",
+        system_prompt_template=(
+            "Eres estratega de guion audiovisual para conversion digital. Entrega estructura de video por escenas, "
+            "hook inicial, desarrollo, CTA y variantes por formato (reel, short, anuncio)."
+        ),
+        recommended_provider="openai",
+        recommended_model="gpt-5.2",
+        tags=["video", "guion", "storytelling", "conversion"],
+    ),
+]
 
 
 def _map_conversation(row: dict) -> IaConversationOut:
@@ -26,6 +85,10 @@ def _map_message(row: dict) -> IaMessageOut:
 
 def _map_saved_output(row: dict) -> IaSavedOutputOut:
     return IaSavedOutputOut(**row)
+
+
+def list_text_specialties() -> list[IaTextSpecialtyOut]:
+    return TEXT_SPECIALTIES
 
 
 def _ensure_conversation_access(db: Session, conversation_id: int, user_id: int) -> IaConversationOut:

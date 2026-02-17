@@ -499,6 +499,12 @@ button:disabled {
   gap: 8px;
 }
 
+.inline-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+
 button.compact {
   margin-top: 10px;
 }
@@ -685,6 +691,19 @@ button.mini {
   font-size: 0.86rem;
 }
 
+.specialty-card {
+  border: 1px solid #2c4f80;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: rgba(8, 25, 47, 0.86);
+}
+
+.specialty-title {
+  margin: 0 0 4px;
+  font-weight: 700;
+  color: #eaf2ff;
+}
+
 .tile-meta {
   display: grid;
   gap: 4px;
@@ -771,6 +790,10 @@ td {
   }
 
   .inline-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .inline-3 {
     grid-template-columns: 1fr;
   }
 

@@ -30,6 +30,13 @@ Estado operativo real de la plataforma `plataforma-proyectos-ia`.
 - `GET /costs/summary`
 - `POST /ai/text/generate`
 - `POST /ai/image/generate`
+- `POST /ia/conversations`
+- `GET /ia/conversations`
+- `GET /ia/conversations/{conversation_id}`
+- `POST /ia/conversations/{conversation_id}/messages`
+- `POST /ia/messages/{message_id}/save`
+- `GET /ia/saved-outputs`
+- `GET /ia/text-specialties`
 
 ### CORS/preflight
 
@@ -50,6 +57,8 @@ Estado operativo real de la plataforma `plataforma-proyectos-ia`.
   - ejecucion real de imagen (`/ai/image/generate`) con preview
 - Tab `Generador IA`:
   - `Text IA` conversacional con seleccion de motor/modelo
+  - selector de especialidad IA (prompt maestro y proveedor/modelo recomendado)
+  - contexto de negocio estructurado para analisis experto
   - guardado explicito de iteraciones en DB (usuario decide que persistir)
 - Logout real con limpieza de sesion.
 
@@ -67,6 +76,7 @@ Estado operativo real de la plataforma `plataforma-proyectos-ia`.
 - DDL base y migraciones:
   - `database/mysql/001_init_plataformaIa.sql`
   - `database/mysql/002_agent_runs_provider_model.sql`
+  - `database/mysql/003_ia_generator_iterations.sql`
 
 ## 6) Riesgos abiertos
 

@@ -12,11 +12,13 @@ from src.modules.ia_generator.schemas import (
     IaMessageOut,
     IaSaveMessageRequest,
     IaSavedOutputOut,
+    IaTextSpecialtyOut,
 )
 from src.modules.ia_generator.service import (
     create_conversation,
     create_message_for_conversation,
     get_conversation_detail_for_user,
+    list_text_specialties,
     list_conversations_for_user,
     list_saved_outputs_for_user,
     save_message_output,
@@ -24,6 +26,14 @@ from src.modules.ia_generator.service import (
 from src.modules.users.dependencies import current_user
 
 router = APIRouter()
+
+
+@router.get("/text-specialties", response_model=list[IaTextSpecialtyOut])
+def get_text_specialties(
+    user: User = Depends(current_user),
+) -> list[IaTextSpecialtyOut]:
+    _ = user
+    return list_text_specialties()
 
 
 @router.post("/conversations", response_model=IaConversationOut, status_code=201)
