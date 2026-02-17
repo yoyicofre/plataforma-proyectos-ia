@@ -93,16 +93,12 @@
   font-weight: 700;
 }
 
-.auth-mini-mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 9px;
-  display: grid;
-  place-items: center;
-  color: #dff2ff;
-  background: linear-gradient(135deg, #1d58d8, #33a3ff);
-  font-family: "Space Grotesk", sans-serif;
-  font-weight: 700;
+.auth-mini-mark-logo {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow: 0 6px 16px rgba(29, 94, 217, 0.4);
 }
 
 .auth-form-side h1 {
@@ -140,6 +136,14 @@
   gap: 14px;
   padding: 28px;
   background: linear-gradient(160deg, rgba(16, 54, 130, 0.62), rgba(12, 37, 89, 0.72));
+}
+
+.auth-main-logo {
+  width: 112px;
+  height: 112px;
+  margin: 0 auto 6px;
+  border-radius: 24px;
+  box-shadow: 0 14px 34px rgba(12, 76, 180, 0.48);
 }
 
 .auth-brand-side .tag {

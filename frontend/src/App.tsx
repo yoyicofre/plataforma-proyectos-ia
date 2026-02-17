@@ -156,7 +156,7 @@ function App() {
         <div className="auth-card">
           <article className="auth-form-side">
             <div className="auth-mini-brand">
-              <div className="auth-mini-mark">IA</div>
+              <img src="/automationia-logo.svg" alt="automationIA" className="auth-mini-mark-logo" />
               <span>mktautomations platform</span>
             </div>
             <h1>Acceder</h1>
@@ -188,6 +188,7 @@ function App() {
             {authError ? <p className="error">{authError}</p> : null}
           </article>
           <article className="auth-brand-side">
+            <img src="/automationia-logo.svg" alt="automationIA logo" className="auth-main-logo" />
             <p className="tag">Plataforma IA</p>
             <h2>WELCOME BACK!</h2>
             <p>Panel operativo de proyectos, agentes y costos en tiempo real.</p>

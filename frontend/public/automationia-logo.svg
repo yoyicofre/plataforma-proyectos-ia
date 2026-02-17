@@ -1,0 +1,48 @@
+<svg width="640" height="640" viewBox="0 0 640 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="96" y1="64" x2="544" y2="576" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1F47"/>
+      <stop offset="1" stop-color="#0B3B73"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="126" y1="124" x2="506" y2="506" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3CC9FF"/>
+      <stop offset="1" stop-color="#1F6BFF"/>
+    </linearGradient>
+    <linearGradient id="accentSoft" x1="160" y1="176" x2="452" y2="460" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#74F2D3"/>
+      <stop offset="1" stop-color="#33A1FF"/>
+    </linearGradient>
+    <filter id="glow" x="96" y="96" width="448" height="448" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.22 0 0 0 0 0.63 0 0 0 0 1 0 0 0 0.45 0"/>
+      <feBlend mode="screen" in2="SourceGraphic"/>
+    </filter>
+  </defs>
+
+  <rect x="64" y="64" width="512" height="512" rx="124" fill="url(#bg)"/>
+  <rect x="94" y="94" width="452" height="452" rx="94" stroke="url(#accent)" stroke-opacity="0.45" stroke-width="2"/>
+
+  <g filter="url(#glow)">
+    <path d="M186 438L262 202L290 202L366 438H336L319 386H233L216 438H186ZM242 356H310L276 246L242 356Z" fill="url(#accent)"/>
+    <rect x="386" y="202" width="30" height="236" rx="10" fill="url(#accentSoft)"/>
+    <rect x="368" y="202" width="66" height="30" rx="10" fill="url(#accent)"/>
+  </g>
+
+  <g opacity="0.95">
+    <circle cx="154" cy="170" r="9" fill="#6FD7FF"/>
+    <circle cx="488" cy="154" r="7" fill="#7FF4D6"/>
+    <circle cx="510" cy="486" r="9" fill="#4FA0FF"/>
+    <circle cx="162" cy="496" r="7" fill="#65D2FF"/>
+    <circle cx="470" cy="332" r="8" fill="#7CE5E0"/>
+    <circle cx="170" cy="326" r="8" fill="#59B7FF"/>
+
+    <path d="M163 170L220 218" stroke="#5EC7FF" stroke-opacity="0.65" stroke-width="2"/>
+    <path d="M488 154L422 220" stroke="#72EAD7" stroke-opacity="0.65" stroke-width="2"/>
+    <path d="M510 486L434 420" stroke="#56A8FF" stroke-opacity="0.65" stroke-width="2"/>
+    <path d="M162 496L232 420" stroke="#5CC6FF" stroke-opacity="0.65" stroke-width="2"/>
+    <path d="M170 326H228" stroke="#59BFFF" stroke-opacity="0.65" stroke-width="2"/>
+    <path d="M412 326H470" stroke="#6FE8DE" stroke-opacity="0.65" stroke-width="2"/>
+  </g>
+
+  <text x="320" y="548" text-anchor="middle" fill="#D3E8FF" font-family="Manrope, Segoe UI, sans-serif" font-size="30" font-weight="700" letter-spacing="1.8">automationIA</text>
+</svg>
