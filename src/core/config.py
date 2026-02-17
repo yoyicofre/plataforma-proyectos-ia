@@ -20,6 +20,7 @@ class Settings(BaseModel):
     jwt_audience: str = os.getenv("JWT_AUDIENCE", "plataforma-ia-api")
     jwt_exp_minutes: int = int(os.getenv("JWT_EXP_MINUTES", "480"))
     dev_bootstrap_key: str = os.getenv("DEV_BOOTSTRAP_KEY", "dev-bootstrap-key")
+    portal_access_key: str = os.getenv("PORTAL_ACCESS_KEY", "")
 
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_model_text: str = os.getenv("OPENAI_MODEL_TEXT", "gpt-5.2")
@@ -71,6 +72,9 @@ class Settings(BaseModel):
 
         if self.dev_bootstrap_key == "dev-bootstrap-key":
             raise ValueError("DEV_BOOTSTRAP_KEY default value is not allowed in production.")
+
+        if len(self.portal_access_key) < 12:
+            raise ValueError("PORTAL_ACCESS_KEY must be set with at least 12 chars in production.")
 
 
 settings = Settings()

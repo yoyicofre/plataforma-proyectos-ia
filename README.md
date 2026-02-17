@@ -133,6 +133,7 @@ JWT_ISSUER=plataforma-ia
 JWT_AUDIENCE=plataforma-ia-api
 JWT_EXP_MINUTES=480
 DEV_BOOTSTRAP_KEY=dev-bootstrap-key
+PORTAL_ACCESS_KEY=internal-portal-access-key
 OPENAI_API_KEY=
 OPENAI_MODEL_TEXT=gpt-5.2
 OPENAI_MODEL_IMAGE=gpt-image-1
@@ -176,6 +177,7 @@ DDL base:
 - `DELETE /projects/{project_id}/members/{member_user_id}`
 - `GET /projects/{project_id}/permissions/me`
 - `POST /auth/token` (solo dev, emite JWT para pruebas)
+- `POST /auth/login` (email + `PORTAL_ACCESS_KEY`, recomendado para frontend interno)
 - `GET /auth/permissions/me`
 - `GET /me/context`
 - `GET /me/dashboard`

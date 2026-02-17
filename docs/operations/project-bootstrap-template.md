@@ -28,6 +28,7 @@ Crear en `prod`:
 - `DB_NAME`
 - `JWT_SECRET`
 - `DEV_BOOTSTRAP_KEY`
+- `PORTAL_ACCESS_KEY`
 - `OPENAI_API_KEY`
 - `GEMINI_API_KEY`
 

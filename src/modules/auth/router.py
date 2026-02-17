@@ -3,8 +3,13 @@ from sqlalchemy.orm import Session
 
 from src.core.security import User
 from src.core.db import get_db
-from src.modules.auth.schemas import AuthTokenRequest, AuthTokenResponse, GlobalPermissionsMeOut
-from src.modules.auth.service import get_global_permissions_me, issue_dev_token
+from src.modules.auth.schemas import (
+    AuthLoginRequest,
+    AuthTokenRequest,
+    AuthTokenResponse,
+    GlobalPermissionsMeOut,
+)
+from src.modules.auth.service import get_global_permissions_me, issue_dev_token, issue_login_token
 from src.modules.users.dependencies import current_user
 
 router = APIRouter()
@@ -13,6 +18,11 @@ router = APIRouter()
 @router.post("/token", response_model=AuthTokenResponse)
 def post_token(payload: AuthTokenRequest, db: Session = Depends(get_db)) -> AuthTokenResponse:
     return issue_dev_token(db=db, payload=payload)
+
+
+@router.post("/login", response_model=AuthTokenResponse)
+def post_login(payload: AuthLoginRequest, db: Session = Depends(get_db)) -> AuthTokenResponse:
+    return issue_login_token(db=db, payload=payload)
 
 
 @router.get("/permissions/me", response_model=GlobalPermissionsMeOut)

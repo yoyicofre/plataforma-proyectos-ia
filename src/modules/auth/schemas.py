@@ -13,6 +13,11 @@ class AuthTokenResponse(BaseModel):
     expires_in_seconds: int
 
 
+class AuthLoginRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=320)
+    access_key: str = Field(min_length=8, max_length=200)
+
+
 class GlobalPermissionsMeOut(BaseModel):
     user_id: int
     roles: list[str]

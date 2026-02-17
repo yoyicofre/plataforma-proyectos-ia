@@ -38,6 +38,7 @@ Si una clave fue compartida por chat/captura, asumir compromiso y rotar inmediat
 - `ENVIRONMENT=prod` o `ENVIRONMENT=production`.
 - `JWT_SECRET` debe ser no-default y de al menos 32 caracteres.
 - `DEV_BOOTSTRAP_KEY=dev-bootstrap-key` está bloqueado en `prod`.
+- `PORTAL_ACCESS_KEY` debe existir y tener al menos 12 caracteres.
 - Endpoint `POST /auth/token` deshabilitado en `prod`.
 
 ## Reuso para nuevos proyectos
