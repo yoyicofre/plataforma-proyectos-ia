@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from src.core.security import User
@@ -23,6 +23,11 @@ def post_token(payload: AuthTokenRequest, db: Session = Depends(get_db)) -> Auth
 @router.post("/login", response_model=AuthTokenResponse)
 def post_login(payload: AuthLoginRequest, db: Session = Depends(get_db)) -> AuthTokenResponse:
     return issue_login_token(db=db, payload=payload)
+
+
+@router.options("/login")
+def options_login() -> Response:
+    return Response(status_code=204)
 
 
 @router.get("/permissions/me", response_model=GlobalPermissionsMeOut)
