@@ -226,6 +226,21 @@ function humanError(label: string, status: number): string {
   return `${label}: error ${status}`;
 }
 
+async function extractApiErrorMessage(res: Response, fallback: string): Promise<string> {
+  try {
+    const data = (await res.json()) as { detail?: unknown };
+    if (typeof data.detail === "string" && data.detail.trim()) {
+      return data.detail;
+    }
+    if (Array.isArray(data.detail)) {
+      return `${fallback}: ${JSON.stringify(data.detail)}`;
+    }
+  } catch {
+    // ignore json parse errors
+  }
+  return `${fallback} ${res.status}`;
+}
+
 function App() {
   const [token, setToken] = useState("");
   const [email, setEmail] = useState("demo@mktautomations.com");
@@ -637,7 +652,7 @@ function App() {
 
   async function executeAgentText() {
     const currentToken = token.trim();
-    if (!currentToken || !execProjectId.trim() || !execAgentId.trim() || !execPrompt.trim()) return;
+    if (!currentToken || !execProjectId.trim() || !execPrompt.trim()) return;
 
     setExecLoading(true);
     setExecError("");
@@ -649,14 +664,14 @@ function App() {
         headers: buildAuthHeaders(currentToken),
         body: JSON.stringify({
           project_id: Number(execProjectId),
-          agent_id: Number(execAgentId),
+          agent_id: execAgentId.trim() ? Number(execAgentId) : null,
           prompt: execPrompt.trim(),
           system_prompt: execSystemPrompt.trim() || null,
           provider_preference: execProvider,
           model_name: execModel.trim() || null,
         }),
       });
-      if (!res.ok) throw new Error(`execute-agent ${res.status}`);
+      if (!res.ok) throw new Error(await extractApiErrorMessage(res, "execute-agent"));
       const data = (await res.json()) as AiTextGenerateResponse;
       setExecResult(data);
 
@@ -694,18 +709,20 @@ function App() {
     const currentToken = (providedToken ?? token).trim();
     if (!currentToken) throw new Error("Missing token");
     if (iaConversationId) return iaConversationId;
-    if (!iaProjectId || !iaAgentId) throw new Error("Selecciona proyecto y agente");
+    if (!iaProjectId) throw new Error("Selecciona proyecto");
+    const effectiveAgentId = iaAgentId || (agentsData[0] ? String(agentsData[0].agent_id) : "");
+    if (!effectiveAgentId) throw new Error("No hay agentes activos disponibles");
 
     const res = await fetch(apiUrl("/ia/conversations"), {
       method: "POST",
       headers: buildAuthHeaders(currentToken),
       body: JSON.stringify({
         project_id: Number(iaProjectId),
-        agent_id: Number(iaAgentId),
+        agent_id: Number(effectiveAgentId),
         title: `Text IA ${new Date().toISOString()}`,
       }),
     });
-    if (!res.ok) throw new Error(`ia-conversation ${res.status}`);
+    if (!res.ok) throw new Error(await extractApiErrorMessage(res, "ia-conversation"));
     const data = (await res.json()) as IaConversationOut;
     setIaConversationId(data.conversation_id);
     return data.conversation_id;
@@ -713,7 +730,7 @@ function App() {
 
   async function executeAgentImage() {
     const currentToken = token.trim();
-    if (!currentToken || !imgProjectId.trim() || !imgAgentId.trim() || !imgPrompt.trim()) return;
+    if (!currentToken || !imgProjectId.trim() || !imgPrompt.trim()) return;
 
     setImgLoading(true);
     setImgError("");
@@ -725,14 +742,14 @@ function App() {
         headers: buildAuthHeaders(currentToken),
         body: JSON.stringify({
           project_id: Number(imgProjectId),
-          agent_id: Number(imgAgentId),
+          agent_id: imgAgentId.trim() ? Number(imgAgentId) : null,
           prompt: imgPrompt.trim(),
           provider_preference: imgProvider,
           model_name: imgModel.trim() || null,
           size: imgSize.trim() || "1024x1024",
         }),
       });
-      if (!res.ok) throw new Error(`execute-image ${res.status}`);
+      if (!res.ok) throw new Error(await extractApiErrorMessage(res, "execute-image"));
       const data = (await res.json()) as AiImageGenerateResponse;
       setImgResult(data);
 
@@ -747,7 +764,7 @@ function App() {
 
   async function runTextIaIteration() {
     const currentToken = token.trim();
-    if (!currentToken || !iaProjectId.trim() || !iaAgentId.trim() || !iaPrompt.trim()) return;
+    if (!currentToken || !iaProjectId.trim() || !iaPrompt.trim()) return;
 
     const userMessage: TextIaMessage = { role: "user", content: iaPrompt.trim() };
     const history = [...iaMessages, userMessage]
@@ -766,14 +783,14 @@ function App() {
         headers: buildAuthHeaders(currentToken),
         body: JSON.stringify({
           project_id: Number(iaProjectId),
-          agent_id: Number(iaAgentId),
+          agent_id: iaAgentId.trim() ? Number(iaAgentId) : null,
           prompt: promptForModel,
           system_prompt: iaSystemPrompt.trim() || null,
           provider_preference: iaProvider,
           model_name: iaModel.trim() || null,
         }),
       });
-      if (!res.ok) throw new Error(`text-ia ${res.status}`);
+      if (!res.ok) throw new Error(await extractApiErrorMessage(res, "text-ia"));
       const data = (await res.json()) as AiTextGenerateResponse;
 
       setIaMessages((prev) => [
@@ -1395,7 +1412,7 @@ function App() {
                     ))}
                   </select>
                   <select value={execAgentId} onChange={(e) => setExecAgentId(e.target.value)}>
-                    <option value="">Agent ID</option>
+                    <option value="">auto (agente activo)</option>
                     {agentsData.map((agent) => (
                       <option key={agent.agent_id} value={agent.agent_id}>
                         {agent.agent_id} - {agent.agent_code}
@@ -1429,7 +1446,7 @@ function App() {
                 />
                 <button
                   onClick={() => void executeAgentText()}
-                  disabled={execLoading || !execProjectId || !execAgentId || !execPrompt.trim()}
+                  disabled={execLoading || !execProjectId || !execPrompt.trim()}
                 >
                   {execLoading ? "Ejecutando..." : "Ejecutar agente"}
                 </button>
@@ -1461,7 +1478,7 @@ function App() {
                     ))}
                   </select>
                   <select value={imgAgentId} onChange={(e) => setImgAgentId(e.target.value)}>
-                    <option value="">Agent ID</option>
+                    <option value="">auto (agente activo)</option>
                     {agentsData.map((agent) => (
                       <option key={agent.agent_id} value={agent.agent_id}>
                         {agent.agent_id} - {agent.agent_code}
@@ -1487,7 +1504,7 @@ function App() {
                   value={imgPrompt}
                   onChange={(e) => setImgPrompt(e.target.value)}
                 />
-                <button onClick={() => void executeAgentImage()} disabled={imgLoading || !imgProjectId || !imgAgentId || !imgPrompt.trim()}>
+                <button onClick={() => void executeAgentImage()} disabled={imgLoading || !imgProjectId || !imgPrompt.trim()}>
                   {imgLoading ? "Generando..." : "Generar imagen"}
                 </button>
               </div>
@@ -1580,7 +1597,7 @@ function App() {
                     ))}
                   </select>
                   <select value={iaAgentId} onChange={(e) => setIaAgentId(e.target.value)}>
-                    <option value="">Agente especializado</option>
+                    <option value="">auto (usar agente activo)</option>
                     {agentsData.map((agent) => (
                       <option key={agent.agent_id} value={agent.agent_id}>
                         {agent.agent_id} - {agent.agent_name}
@@ -1615,7 +1632,7 @@ function App() {
                   onChange={(e) => setIaPrompt(e.target.value)}
                 />
                 <div className="inline-2">
-                  <button onClick={() => void runTextIaIteration()} disabled={iaLoading || !iaProjectId || !iaAgentId || !iaPrompt.trim()}>
+                  <button onClick={() => void runTextIaIteration()} disabled={iaLoading || !iaProjectId || !iaPrompt.trim()}>
                     {iaLoading ? "Generando..." : "Enviar a Text IA"}
                   </button>
                   <button

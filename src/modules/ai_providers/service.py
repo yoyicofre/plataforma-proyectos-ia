@@ -3,10 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from src.core.config import settings
 from src.core.errors import bad_request
+from src.core.logging import get_logger
 from src.core.security import User
 from src.modules.agent_runs.schemas import AgentRunCreate
 from src.modules.agent_runs.service import create_agent_run
@@ -18,6 +20,7 @@ from src.modules.ai_providers.schemas import (
 )
 
 PROVIDERS = {"openai", "gemini"}
+logger = get_logger(__name__)
 
 
 def _providers_order(preference: str) -> list[str]:
@@ -49,6 +52,45 @@ def _estimate_image_cost(provider: str) -> float:
     if provider == "openai":
         return round(settings.openai_image_cost_per_image, 6)
     return round(settings.gemini_image_cost_per_image, 6)
+
+
+def _resolve_agent_id(db: Session, project_id: int, requested_agent_id: int | None) -> int:
+    if requested_agent_id is not None:
+        return int(requested_agent_id)
+
+    project_agent = db.execute(
+        text(
+            """
+            SELECT paa.agent_id
+            FROM project_agent_assignments paa
+            JOIN agent_catalog ac ON ac.agent_id = paa.agent_id
+            WHERE paa.project_id = :project_id
+              AND paa.assignment_status = 'active'
+              AND ac.is_active = 1
+            ORDER BY paa.project_agent_assignment_id DESC
+            LIMIT 1
+            """
+        ),
+        {"project_id": project_id},
+    ).scalar_one_or_none()
+    if project_agent is not None:
+        return int(project_agent)
+
+    any_active_agent = db.execute(
+        text(
+            """
+            SELECT agent_id
+            FROM agent_catalog
+            WHERE is_active = 1
+            ORDER BY agent_id
+            LIMIT 1
+            """
+        )
+    ).scalar_one_or_none()
+    if any_active_agent is not None:
+        return int(any_active_agent)
+
+    raise bad_request("No active agent available. Create/activate an agent first.")
 
 
 def _openai_text(req: AiTextGenerateRequest) -> dict[str, Any]:
@@ -207,15 +249,27 @@ def _gemini_image(req: AiImageGenerateRequest) -> dict[str, Any]:
 
 
 def generate_text(db: Session, user: User, req: AiTextGenerateRequest) -> AiTextGenerateResponse:
+    agent_id = _resolve_agent_id(db=db, project_id=req.project_id, requested_agent_id=req.agent_id)
+    logger.info(
+        "ai_text_start user_id=%s project_id=%s agent_id=%s provider_pref=%s model_override=%s prompt_len=%s system_len=%s",
+        int(user.id),
+        req.project_id,
+        agent_id,
+        req.provider_preference,
+        req.model_name,
+        len(req.prompt or ""),
+        len(req.system_prompt or ""),
+    )
     errors: list[str] = []
     for provider in _providers_order(req.provider_preference):
         try:
+            logger.info("ai_text_provider_attempt provider=%s project_id=%s agent_id=%s", provider, req.project_id, agent_id)
             result = _openai_text(req) if provider == "openai" else _gemini_text(req)
             run = create_agent_run(
                 db=db,
                 payload=AgentRunCreate(
                     project_id=req.project_id,
-                    agent_id=req.agent_id,
+                    agent_id=agent_id,
                     stage_id=req.stage_id,
                     provider=result["provider"],
                     model_name=result["model_name"],
@@ -239,13 +293,20 @@ def generate_text(db: Session, user: User, req: AiTextGenerateRequest) -> AiText
                 cost_usd=result.get("cost_usd"),
             )
         except Exception as exc:
+            logger.exception(
+                "ai_text_provider_error provider=%s project_id=%s agent_id=%s error=%s",
+                provider,
+                req.project_id,
+                agent_id,
+                str(exc),
+            )
             errors.append(f"{provider}: {exc}")
 
     failed_run = create_agent_run(
         db=db,
         payload=AgentRunCreate(
             project_id=req.project_id,
-            agent_id=req.agent_id,
+            agent_id=agent_id,
             stage_id=req.stage_id,
             provider=None,
             model_name=req.model_name,
@@ -256,19 +317,38 @@ def generate_text(db: Session, user: User, req: AiTextGenerateRequest) -> AiText
             created_by_user_id=int(user.id),
         ),
     )
+    logger.error(
+        "ai_text_all_providers_failed project_id=%s agent_id=%s run_id=%s errors=%s",
+        req.project_id,
+        agent_id,
+        failed_run.agent_run_id,
+        errors,
+    )
     raise bad_request(f"All providers failed. run_id={failed_run.agent_run_id}. errors={errors}")
 
 
 def generate_image(db: Session, user: User, req: AiImageGenerateRequest) -> AiImageGenerateResponse:
+    agent_id = _resolve_agent_id(db=db, project_id=req.project_id, requested_agent_id=req.agent_id)
+    logger.info(
+        "ai_image_start user_id=%s project_id=%s agent_id=%s provider_pref=%s model_override=%s prompt_len=%s size=%s",
+        int(user.id),
+        req.project_id,
+        agent_id,
+        req.provider_preference,
+        req.model_name,
+        len(req.prompt or ""),
+        req.size,
+    )
     errors: list[str] = []
     for provider in _providers_order(req.provider_preference):
         try:
+            logger.info("ai_image_provider_attempt provider=%s project_id=%s agent_id=%s", provider, req.project_id, agent_id)
             result = _openai_image(req) if provider == "openai" else _gemini_image(req)
             run = create_agent_run(
                 db=db,
                 payload=AgentRunCreate(
                     project_id=req.project_id,
-                    agent_id=req.agent_id,
+                    agent_id=agent_id,
                     stage_id=req.stage_id,
                     provider=result["provider"],
                     model_name=result["model_name"],
@@ -294,13 +374,20 @@ def generate_image(db: Session, user: User, req: AiImageGenerateRequest) -> AiIm
                 cost_usd=result.get("cost_usd"),
             )
         except Exception as exc:
+            logger.exception(
+                "ai_image_provider_error provider=%s project_id=%s agent_id=%s error=%s",
+                provider,
+                req.project_id,
+                agent_id,
+                str(exc),
+            )
             errors.append(f"{provider}: {exc}")
 
     failed_run = create_agent_run(
         db=db,
         payload=AgentRunCreate(
             project_id=req.project_id,
-            agent_id=req.agent_id,
+            agent_id=agent_id,
             stage_id=req.stage_id,
             provider=None,
             model_name=req.model_name,
@@ -310,5 +397,12 @@ def generate_image(db: Session, user: User, req: AiImageGenerateRequest) -> AiIm
             error_message=" | ".join(errors)[:1000],
             created_by_user_id=int(user.id),
         ),
+    )
+    logger.error(
+        "ai_image_all_providers_failed project_id=%s agent_id=%s run_id=%s errors=%s",
+        req.project_id,
+        agent_id,
+        failed_run.agent_run_id,
+        errors,
     )
     raise bad_request(f"All providers failed. run_id={failed_run.agent_run_id}. errors={errors}")

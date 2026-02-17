@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 
 class AiTextGenerateRequest(BaseModel):
     project_id: int
-    agent_id: int
+    agent_id: int | None = None
     prompt: str = Field(min_length=1, max_length=40000)
     system_prompt: str | None = None
     stage_id: int | None = None
@@ -25,7 +25,7 @@ class AiTextGenerateResponse(BaseModel):
 
 class AiImageGenerateRequest(BaseModel):
     project_id: int
-    agent_id: int
+    agent_id: int | None = None
     prompt: str = Field(min_length=1, max_length=40000)
     stage_id: int | None = None
     provider_preference: str = "auto"
