@@ -121,6 +121,7 @@ Frontend:
 ## 10) Artefactos que deben quedar actualizados por proyecto
 
 - `README.md` (dominios y endpoints reales)
+- `docs/operations/current-status.md` (estado operativo real)
 - `docs/operations/aws-custom-domains.md`
 - `docs/operations/cicd.md`
 - `docs/operations/secrets.md`

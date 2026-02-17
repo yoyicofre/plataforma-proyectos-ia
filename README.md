@@ -183,6 +183,12 @@ DDL base:
 - `GET /me/dashboard`
 - `POST /ai/text/generate`
 - `POST /ai/image/generate`
+- `POST /ia/conversations`
+- `GET /ia/conversations`
+- `GET /ia/conversations/{conversation_id}`
+- `POST /ia/conversations/{conversation_id}/messages`
+- `POST /ia/messages/{message_id}/save`
+- `GET /ia/saved-outputs`
 - `GET /costs/summary`
 
 Migraciones DB:
@@ -214,6 +220,7 @@ CI/CD backend (GitHub Actions):
 - deploy frontend: `.github/workflows/deploy-frontend.yml`
 - guia: `docs/operations/cicd.md`
 - plantilla reusable (nuevos proyectos): `docs/operations/project-bootstrap-template.md`
+- estado operativo actual: `docs/operations/current-status.md`
 
 Secrets locales:
 
@@ -247,3 +254,8 @@ Reglas:
   requiere rol global JWT `admin` o `operator`.
 - `POST/PATCH/DELETE /projects/{id}/members*`:
   requiere rol de proyecto `admin`.
+
+## Proximo modulo en diseno
+
+- `Generador IA > Text IA` (persistencia bajo decision del usuario):
+  - `docs/modules/ia_generator/iteration-persistence-spec.md`

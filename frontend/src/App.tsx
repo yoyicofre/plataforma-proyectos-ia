@@ -147,6 +147,33 @@ type TextIaMessage = {
   costUsd?: number | null;
 };
 
+type IaConversationOut = {
+  conversation_id: number;
+  project_id: number;
+  agent_id: number;
+  title: string | null;
+  status: string;
+  created_by_user_id: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type IaSavedOutputOut = {
+  saved_output_id: number;
+  conversation_id: number;
+  message_id: number;
+  label: string;
+  notes: string | null;
+  created_by_user_id: number;
+  created_at: string;
+  project_id: number;
+  agent_id: number;
+  run_id: number | null;
+  provider: string | null;
+  model_name: string | null;
+  content: string;
+};
+
 type TabName = "overview" | "projects" | "costs" | "ideas" | "agents" | "ia_generator";
 type SourceName = "context" | "dashboard" | "costs";
 type SourceStatus = Record<SourceName, "idle" | "ok" | "error">;
@@ -266,6 +293,9 @@ function App() {
   const [iaSystemPrompt, setIaSystemPrompt] = useState("");
   const [iaPrompt, setIaPrompt] = useState("");
   const [iaMessages, setIaMessages] = useState<TextIaMessage[]>([]);
+  const [iaConversationId, setIaConversationId] = useState<number | null>(null);
+  const [iaSavedOutputs, setIaSavedOutputs] = useState<IaSavedOutputOut[]>([]);
+  const [iaSavedLoading, setIaSavedLoading] = useState(false);
   const [iaLoading, setIaLoading] = useState(false);
   const [iaError, setIaError] = useState("");
 
@@ -489,9 +519,17 @@ function App() {
       if (agentsData.length === 0) {
         void loadAgents();
       }
+      void loadIaSavedOutputs();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, token]);
+
+  useEffect(() => {
+    if (!token || activeTab !== "ia_generator") return;
+    setIaConversationId(null);
+    void loadIaSavedOutputs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [iaProjectId, iaAgentId]);
 
   async function loginWithEmail(e: FormEvent) {
     e.preventDefault();
@@ -631,6 +669,48 @@ function App() {
     }
   }
 
+  async function loadIaSavedOutputs(providedToken?: string) {
+    const currentToken = (providedToken ?? token).trim();
+    if (!currentToken) return;
+    setIaSavedLoading(true);
+    try {
+      const query = new URLSearchParams();
+      query.set("limit", "30");
+      if (iaProjectId) query.set("project_id", iaProjectId);
+      if (iaAgentId) query.set("agent_id", iaAgentId);
+      const res = await fetch(apiUrl(`/ia/saved-outputs?${query.toString()}`), {
+        headers: buildAuthHeaders(currentToken),
+      });
+      if (!res.ok) throw new Error(`ia-saved ${res.status}`);
+      setIaSavedOutputs((await res.json()) as IaSavedOutputOut[]);
+    } catch {
+      setIaSavedOutputs([]);
+    } finally {
+      setIaSavedLoading(false);
+    }
+  }
+
+  async function ensureIaConversation(providedToken?: string): Promise<number> {
+    const currentToken = (providedToken ?? token).trim();
+    if (!currentToken) throw new Error("Missing token");
+    if (iaConversationId) return iaConversationId;
+    if (!iaProjectId || !iaAgentId) throw new Error("Selecciona proyecto y agente");
+
+    const res = await fetch(apiUrl("/ia/conversations"), {
+      method: "POST",
+      headers: buildAuthHeaders(currentToken),
+      body: JSON.stringify({
+        project_id: Number(iaProjectId),
+        agent_id: Number(iaAgentId),
+        title: `Text IA ${new Date().toISOString()}`,
+      }),
+    });
+    if (!res.ok) throw new Error(`ia-conversation ${res.status}`);
+    const data = (await res.json()) as IaConversationOut;
+    setIaConversationId(data.conversation_id);
+    return data.conversation_id;
+  }
+
   async function executeAgentImage() {
     const currentToken = token.trim();
     if (!currentToken || !imgProjectId.trim() || !imgAgentId.trim() || !imgPrompt.trim()) return;
@@ -717,6 +797,67 @@ function App() {
     }
   }
 
+  async function saveIaIteration(messageIndex: number) {
+    const currentToken = token.trim();
+    if (!currentToken) return;
+    const message = iaMessages[messageIndex];
+    if (!message || message.role !== "assistant") return;
+
+    const label = window.prompt("Etiqueta para guardar esta iteracion:", "Iteracion IA");
+    if (!label || !label.trim()) return;
+    const notes = window.prompt("Notas (opcional):", "") ?? "";
+
+    try {
+      const conversationId = await ensureIaConversation(currentToken);
+      const previousUser =
+        iaMessages
+          .slice(0, messageIndex)
+          .reverse()
+          .find((m) => m.role === "user")?.content ?? null;
+
+      if (previousUser) {
+        await fetch(apiUrl(`/ia/conversations/${conversationId}/messages`), {
+          method: "POST",
+          headers: buildAuthHeaders(currentToken),
+          body: JSON.stringify({
+            role: "user",
+            content: previousUser,
+          }),
+        });
+      }
+
+      const assistantRes = await fetch(apiUrl(`/ia/conversations/${conversationId}/messages`), {
+        method: "POST",
+        headers: buildAuthHeaders(currentToken),
+        body: JSON.stringify({
+          role: "assistant",
+          content: message.content,
+          provider: message.provider ?? null,
+          model_name: message.model ?? null,
+          run_id: message.runId ?? null,
+          cost_usd: message.costUsd ?? null,
+        }),
+      });
+      if (!assistantRes.ok) throw new Error(`save-message ${assistantRes.status}`);
+      const assistantMsg = (await assistantRes.json()) as { message_id: number };
+
+      const saveRes = await fetch(apiUrl(`/ia/messages/${assistantMsg.message_id}/save`), {
+        method: "POST",
+        headers: buildAuthHeaders(currentToken),
+        body: JSON.stringify({
+          label: label.trim(),
+          notes: notes.trim() || null,
+        }),
+      });
+      if (!saveRes.ok) throw new Error(`save-iteration ${saveRes.status}`);
+
+      await loadIaSavedOutputs(currentToken);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "error";
+      setIaError(`No se pudo guardar iteracion: ${msg}`);
+    }
+  }
+
   async function updateStage(stage: StageItem, status: string, progressPercent: number) {
     const currentToken = token.trim();
     if (!currentToken) return;
@@ -795,6 +936,8 @@ function App() {
     setIaSystemPrompt("");
     setIaPrompt("");
     setIaMessages([]);
+    setIaConversationId(null);
+    setIaSavedOutputs([]);
     setIaError("");
     setActiveTab("overview");
     setApiStatus("unknown");
@@ -1498,9 +1641,14 @@ function App() {
                       <p className="chat-role">{msg.role === "assistant" ? "Asistente IA" : "Tu"}</p>
                       <p>{msg.content}</p>
                       {msg.role === "assistant" && msg.runId ? (
-                        <small>
-                          run {msg.runId} | {msg.provider} | {msg.model} | {formatCurrency(msg.costUsd ?? 0)}
-                        </small>
+                        <>
+                          <small>
+                            run {msg.runId} | {msg.provider} | {msg.model} | {formatCurrency(msg.costUsd ?? 0)}
+                          </small>
+                          <button className="ghost mini" onClick={() => void saveIaIteration(idx)}>
+                            Guardar iteracion
+                          </button>
+                        </>
                       ) : null}
                     </div>
                   ))}
@@ -1508,6 +1656,25 @@ function App() {
               ) : (
                 <p className="subtle">Sin mensajes aun. Envia el primer prompt.</p>
               )}
+
+              <h4>Iteraciones guardadas</h4>
+              {iaSavedLoading ? <p className="subtle">Cargando guardados...</p> : null}
+              {!iaSavedLoading && !iaSavedOutputs.length ? (
+                <p className="subtle">No hay iteraciones guardadas para el filtro actual.</p>
+              ) : null}
+              {iaSavedOutputs.length ? (
+                <div className="saved-iterations">
+                  {iaSavedOutputs.map((it) => (
+                    <div key={it.saved_output_id} className="saved-card">
+                      <p className="saved-title">{it.label}</p>
+                      <p className="subtle">
+                        run {it.run_id ?? "-"} | {it.provider ?? "-"} | {it.model_name ?? "-"}
+                      </p>
+                      <p className="saved-content">{it.content}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </article>
           </section>
         ) : null}

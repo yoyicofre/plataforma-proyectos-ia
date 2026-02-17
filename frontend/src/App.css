@@ -650,6 +650,41 @@ button.compact {
   font-size: 0.82rem;
 }
 
+button.mini {
+  margin-top: 8px;
+  padding: 6px 10px;
+  width: auto;
+  font-size: 0.8rem;
+}
+
+.saved-iterations {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.saved-card {
+  border: 1px solid #2c4f80;
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(8, 25, 47, 0.9);
+}
+
+.saved-title {
+  margin: 0 0 6px;
+  font-weight: 700;
+  color: #eaf2ff;
+}
+
+.saved-content {
+  margin: 0;
+  color: #d4e4ff;
+  white-space: pre-wrap;
+  font-size: 0.86rem;
+}
+
 .tile-meta {
   display: grid;
   gap: 4px;

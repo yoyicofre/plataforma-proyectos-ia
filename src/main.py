@@ -11,6 +11,7 @@ from src.modules.ai_providers.router import router as ai_providers_router
 from src.modules.auth.router import router as auth_router
 from src.modules.costs.router import router as costs_router
 from src.modules.health.router import router as health_router
+from src.modules.ia_generator.router import router as ia_generator_router
 from src.modules.me_context.router import router as me_context_router
 from src.modules.me_dashboard.router import router as me_dashboard_router
 from src.modules.project_agent_assignments.router import (
@@ -50,6 +51,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router, prefix="/auth", tags=["auth"])
     app.include_router(costs_router, prefix="/costs", tags=["costs"])
     app.include_router(health_router)
+    app.include_router(ia_generator_router, prefix="/ia", tags=["ia-generator"])
     app.include_router(me_context_router, tags=["me-context"])
     app.include_router(me_dashboard_router, tags=["me-dashboard"])
     app.include_router(
