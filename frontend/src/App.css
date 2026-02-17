@@ -574,6 +574,33 @@ button.compact {
   font-size: 0.82rem;
 }
 
+.execution-result {
+  margin-top: 12px;
+  border: 1px solid #2a4f83;
+  border-radius: 12px;
+  background: rgba(8, 26, 52, 0.82);
+  padding: 12px;
+}
+
+.execution-result p {
+  margin: 0 0 8px;
+  color: #c8daf7;
+  font-size: 0.86rem;
+}
+
+.execution-result pre {
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  border-radius: 10px;
+  background: rgba(4, 15, 35, 0.95);
+  border: 1px solid #244673;
+  color: #eaf3ff;
+  padding: 10px;
+  font-size: 0.84rem;
+}
+
 .tile-meta {
   display: grid;
   gap: 4px;

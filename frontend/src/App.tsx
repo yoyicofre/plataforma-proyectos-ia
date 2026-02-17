@@ -112,6 +112,16 @@ type ProjectAgentAssignment = {
   assigned_at: string;
 };
 
+type AiTextGenerateResponse = {
+  run_id: number;
+  provider: string;
+  model_name: string;
+  text: string;
+  token_input_count: number | null;
+  token_output_count: number | null;
+  cost_usd: number | null;
+};
+
 type AuthTokenResponse = {
   access_token: string;
   token_type: string;
@@ -209,6 +219,16 @@ function App() {
   const [assignmentProjectId, setAssignmentProjectId] = useState("");
   const [assignmentAgentId, setAssignmentAgentId] = useState("");
   const [assignmentError, setAssignmentError] = useState("");
+
+  const [execProjectId, setExecProjectId] = useState("");
+  const [execAgentId, setExecAgentId] = useState("");
+  const [execProvider, setExecProvider] = useState("auto");
+  const [execModel, setExecModel] = useState("");
+  const [execPrompt, setExecPrompt] = useState("");
+  const [execSystemPrompt, setExecSystemPrompt] = useState("");
+  const [execLoading, setExecLoading] = useState(false);
+  const [execError, setExecError] = useState("");
+  const [execResult, setExecResult] = useState<AiTextGenerateResponse | null>(null);
 
   const [runsData, setRunsData] = useState<AgentRunItem[]>([]);
   const [runsLoading, setRunsLoading] = useState(false);
@@ -416,6 +436,9 @@ function App() {
       void loadProjects();
     } else if (activeTab === "agents") {
       void loadAgents();
+      if (projectsData.length === 0) {
+        void loadProjects();
+      }
     } else if (activeTab === "costs") {
       void loadRuns();
     } else if (activeTab === "ideas" && projectsData.length === 0) {
@@ -528,6 +551,40 @@ function App() {
     }
   }
 
+  async function executeAgentText() {
+    const currentToken = token.trim();
+    if (!currentToken || !execProjectId.trim() || !execAgentId.trim() || !execPrompt.trim()) return;
+
+    setExecLoading(true);
+    setExecError("");
+    setExecResult(null);
+
+    try {
+      const res = await fetch(apiUrl("/ai/text/generate"), {
+        method: "POST",
+        headers: buildAuthHeaders(currentToken),
+        body: JSON.stringify({
+          project_id: Number(execProjectId),
+          agent_id: Number(execAgentId),
+          prompt: execPrompt.trim(),
+          system_prompt: execSystemPrompt.trim() || null,
+          provider_preference: execProvider,
+          model_name: execModel.trim() || null,
+        }),
+      });
+      if (!res.ok) throw new Error(`execute-agent ${res.status}`);
+      const data = (await res.json()) as AiTextGenerateResponse;
+      setExecResult(data);
+
+      await Promise.all([loadData(), loadRuns(), loadAgents()]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "error";
+      setExecError(message);
+    } finally {
+      setExecLoading(false);
+    }
+  }
+
   async function updateStage(stage: StageItem, status: string, progressPercent: number) {
     const currentToken = token.trim();
     if (!currentToken) return;
@@ -583,6 +640,14 @@ function App() {
     setRunsError("");
     setStagesError("");
     setAssignmentError("");
+    setExecProjectId("");
+    setExecAgentId("");
+    setExecProvider("auto");
+    setExecModel("");
+    setExecPrompt("");
+    setExecSystemPrompt("");
+    setExecError("");
+    setExecResult(null);
     setActiveTab("overview");
     setApiStatus("unknown");
     setSourceStatus({ context: "idle", dashboard: "idle", costs: "idle" });
@@ -1023,6 +1088,73 @@ function App() {
               </div>
               <button onClick={() => void assignAgentToProject()}>Asignar</button>
               {assignmentError ? <p className="error">{assignmentError}</p> : null}
+
+              <h4>Ejecutar agente (IA real)</h4>
+              <div className="stack">
+                <div className="inline-2">
+                  <select value={execProjectId} onChange={(e) => setExecProjectId(e.target.value)}>
+                    <option value="">Project ID</option>
+                    {projectsData.map((project) => (
+                      <option key={project.project_id} value={project.project_id}>
+                        {project.project_id} - {project.project_key}
+                      </option>
+                    ))}
+                  </select>
+                  <select value={execAgentId} onChange={(e) => setExecAgentId(e.target.value)}>
+                    <option value="">Agent ID</option>
+                    {agentsData.map((agent) => (
+                      <option key={agent.agent_id} value={agent.agent_id}>
+                        {agent.agent_id} - {agent.agent_code}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="inline-2">
+                  <select value={execProvider} onChange={(e) => setExecProvider(e.target.value)}>
+                    <option value="auto">auto</option>
+                    <option value="openai">openai</option>
+                    <option value="gemini">gemini</option>
+                  </select>
+                  <input
+                    placeholder="Model override (opcional)"
+                    value={execModel}
+                    onChange={(e) => setExecModel(e.target.value)}
+                  />
+                </div>
+                <textarea
+                  rows={3}
+                  placeholder="System prompt (opcional)"
+                  value={execSystemPrompt}
+                  onChange={(e) => setExecSystemPrompt(e.target.value)}
+                />
+                <textarea
+                  rows={5}
+                  placeholder="Prompt de negocio para ejecutar el agente"
+                  value={execPrompt}
+                  onChange={(e) => setExecPrompt(e.target.value)}
+                />
+                <button
+                  onClick={() => void executeAgentText()}
+                  disabled={execLoading || !execProjectId || !execAgentId || !execPrompt.trim()}
+                >
+                  {execLoading ? "Ejecutando..." : "Ejecutar agente"}
+                </button>
+              </div>
+              {execError ? <p className="error">{execError}</p> : null}
+              {execResult ? (
+                <div className="execution-result">
+                  <p>
+                    <strong>Run:</strong> {execResult.run_id} | <strong>Provider:</strong> {execResult.provider} |{" "}
+                    <strong>Model:</strong> {execResult.model_name}
+                  </p>
+                  <p>
+                    <strong>Tokens:</strong> in {execResult.token_input_count ?? 0} / out {execResult.token_output_count ?? 0} |{" "}
+                    <strong>Costo:</strong> {formatCurrency(execResult.cost_usd ?? 0)}
+                  </p>
+                  <pre>{execResult.text || "(sin texto)"}</pre>
+                </div>
+              ) : null}
+
               {agentsData.length ? (
                 <table>
                   <thead>
