@@ -1,5 +1,5 @@
-﻿import "./App.css";
-import { useEffect, useState } from "react";
+import "./App.css";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 
 type MeContext = {
@@ -32,12 +32,25 @@ type MeDashboard = {
     published_artifacts_count: number;
     cost_usd_total_30d: number;
   };
+  projects?: Array<{
+    project_id: number;
+    project_key: string;
+    project_name: string;
+    lifecycle_status: string;
+    member_role: string;
+    blocked_stages_count: number;
+    failed_runs_count_7d: number;
+    queued_runs_count: number;
+    cost_usd_total_30d: number;
+    updated_at: string;
+  }>;
 };
 
 type CostSummary = {
   total_cost_usd: number;
   total_runs_count: number;
   by_provider: Array<{ provider: string; total_cost_usd: number; runs_count: number }>;
+  by_model?: Array<{ provider: string | null; model_name: string | null; total_cost_usd: number; runs_count: number }>;
 };
 
 type AuthTokenResponse = {
@@ -47,13 +60,40 @@ type AuthTokenResponse = {
 };
 
 type TabName = "overview" | "projects" | "costs" | "ideas" | "agents";
+type SourceName = "context" | "dashboard" | "costs";
+type SourceStatus = Record<SourceName, "idle" | "ok" | "error">;
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
 const SESSION_TOKEN_KEY = "plataforma_ia_access_token";
 
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("es-CL", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatDate(input?: string): string {
+  if (!input) return "-";
+  const d = new Date(input);
+  if (Number.isNaN(d.getTime())) return "-";
+  return new Intl.DateTimeFormat("es-CL", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(d);
+}
+
+function humanError(label: string, status: number): string {
+  if (status >= 500) return `${label}: backend no disponible (${status})`;
+  if (status === 404) return `${label}: endpoint no encontrado`;
+  if (status === 401 || status === 403) return `${label}: sesion sin permisos`;
+  return `${label}: error ${status}`;
+}
+
 function App() {
   const [token, setToken] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("demo@mktautomations.com");
   const [accessKey, setAccessKey] = useState("");
   const [projectIdFilter, setProjectIdFilter] = useState("");
   const [loading, setLoading] = useState(false);
@@ -64,6 +104,17 @@ function App() {
   const [dashboard, setDashboard] = useState<MeDashboard | null>(null);
   const [costs, setCosts] = useState<CostSummary | null>(null);
   const [activeTab, setActiveTab] = useState<TabName>("overview");
+  const [sourceStatus, setSourceStatus] = useState<SourceStatus>({
+    context: "idle",
+    dashboard: "idle",
+    costs: "idle",
+  });
+
+  const projectCards = useMemo(() => context?.projects ?? [], [context]);
+  const providerTotal = useMemo(
+    () => (costs?.by_provider ?? []).reduce((acc, i) => acc + i.total_cost_usd, 0),
+    [costs],
+  );
 
   useEffect(() => {
     const storedToken = sessionStorage.getItem(SESSION_TOKEN_KEY);
@@ -80,33 +131,81 @@ function App() {
 
     setLoading(true);
     setError("");
+
+    const headers = {
+      Authorization: `Bearer ${currentToken}`,
+      "Content-Type": "application/json",
+    };
+
+    const costUrl = projectIdFilter
+      ? `${API_BASE_URL}/costs/summary?days=30&project_id=${projectIdFilter}`
+      : `${API_BASE_URL}/costs/summary?days=30`;
+
+    const [ctxRes, dashRes, costRes] = await Promise.allSettled([
+      fetch(`${API_BASE_URL}/me/context`, { headers }),
+      fetch(`${API_BASE_URL}/me/dashboard?limit=20`, { headers }),
+      fetch(costUrl, { headers }),
+    ]);
+
     try {
-      const headers = {
-        Authorization: `Bearer ${currentToken}`,
-        "Content-Type": "application/json",
-      };
-      const contextRes = await fetch(`${API_BASE_URL}/me/context`, { headers });
-      if (!contextRes.ok) throw new Error(`Context error ${contextRes.status}`);
+      const partialErrors: string[] = [];
+      const nextStatus: SourceStatus = { context: "error", dashboard: "error", costs: "error" };
 
-      const dashboardRes = await fetch(`${API_BASE_URL}/me/dashboard?limit=20`, { headers });
-      if (!dashboardRes.ok) throw new Error(`Dashboard error ${dashboardRes.status}`);
+      if (ctxRes.status === "fulfilled") {
+        if (ctxRes.value.status === 401 || ctxRes.value.status === 403) {
+          logout();
+          setError("Sesion expirada. Ingresa nuevamente.");
+          return;
+        }
+        if (ctxRes.value.ok) {
+          setContext((await ctxRes.value.json()) as MeContext);
+          nextStatus.context = "ok";
+        } else {
+          partialErrors.push(humanError("Contexto", ctxRes.value.status));
+        }
+      } else {
+        partialErrors.push("Contexto: no se pudo conectar con la API");
+      }
 
-      const costUrl = projectIdFilter
-        ? `${API_BASE_URL}/costs/summary?days=30&project_id=${projectIdFilter}`
-        : `${API_BASE_URL}/costs/summary?days=30`;
-      const costRes = await fetch(costUrl, { headers });
-      if (!costRes.ok) throw new Error(`Costs error ${costRes.status}`);
+      if (dashRes.status === "fulfilled") {
+        if (dashRes.value.status === 401 || dashRes.value.status === 403) {
+          logout();
+          setError("Sesion expirada. Ingresa nuevamente.");
+          return;
+        }
+        if (dashRes.value.ok) {
+          setDashboard((await dashRes.value.json()) as MeDashboard);
+          nextStatus.dashboard = "ok";
+        } else {
+          partialErrors.push(humanError("Dashboard", dashRes.value.status));
+        }
+      } else {
+        partialErrors.push("Dashboard: no se pudo conectar con la API");
+      }
 
-      setContext((await contextRes.json()) as MeContext);
-      setDashboard((await dashboardRes.json()) as MeDashboard);
-      setCosts((await costRes.json()) as CostSummary);
+      if (costRes.status === "fulfilled") {
+        if (costRes.value.status === 401 || costRes.value.status === 403) {
+          logout();
+          setError("Sesion expirada. Ingresa nuevamente.");
+          return;
+        }
+        if (costRes.value.ok) {
+          setCosts((await costRes.value.json()) as CostSummary);
+          nextStatus.costs = "ok";
+        } else {
+          partialErrors.push(humanError("Costos", costRes.value.status));
+        }
+      } else {
+        partialErrors.push("Costos: no se pudo conectar con la API");
+      }
+
+      setSourceStatus(nextStatus);
+      if (partialErrors.length > 0) {
+        setError(`Vista parcial cargada. ${partialErrors.join(" | ")}`);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error";
-      setError(message);
-      if (message.includes("401") || message.includes("403")) {
-        sessionStorage.removeItem(SESSION_TOKEN_KEY);
-        setToken("");
-      }
+      setError(`Error general al cargar datos: ${message}`);
     } finally {
       setLoading(false);
     }
@@ -147,6 +246,7 @@ function App() {
     setError("");
     setAuthError("");
     setActiveTab("overview");
+    setSourceStatus({ context: "idle", dashboard: "idle", costs: "idle" });
   }
 
   if (!token) {
@@ -160,7 +260,7 @@ function App() {
               <span>mktautomations platform</span>
             </div>
             <h1>Acceder</h1>
-            <p>Bienvenido de nuevo. Ingresa para entrar a tu panel.</p>
+            <p>Ingresa para gestionar proyectos, agentes y costos con inteligencia operativa.</p>
             <form onSubmit={loginWithEmail} className="stack">
               <label htmlFor="email">Correo electronico</label>
               <input
@@ -250,173 +350,187 @@ function App() {
         <header className="topbar">
           <div>
             <h2>Plataforma IA Control Center</h2>
-            <p>Vision operativa de proyectos, agentes y costos en tiempo real.</p>
+            <p>Vista ejecutiva para operar proyectos, agentes y costos de IA.</p>
           </div>
-          {token ? (
+          <div className="topbar-actions">
+            <span className={`status-dot ${loading ? "is-loading" : "is-ready"}`}>{loading ? "Sincronizando" : "Online"}</span>
             <button className="refresh" onClick={() => void loadData()} disabled={loading}>
               {loading ? "Actualizando..." : "Actualizar"}
             </button>
-          ) : null}
+          </div>
         </header>
 
-        <>
-            {activeTab === "overview" ? (
-              <section className="cards-3">
-                <article className="panel metric">
-                  <h4>Perfil</h4>
-                  {context ? (
-                    <div className="kv">
-                      <p><strong>User ID:</strong> {context.profile.user_id}</p>
-                      <p><strong>Email:</strong> {context.profile.email ?? "-"}</p>
-                      <p><strong>Roles:</strong> {context.profile.roles.join(", ")}</p>
-                    </div>
-                  ) : (
-                    <p>Sin datos</p>
-                  )}
-                </article>
-                <article className="panel metric">
-                  <h4>Permisos globales</h4>
-                  {context ? (
-                    <ul className="flags">
-                      <li>Acceso plataforma: {String(context.global_permissions.can_access_platform)}</li>
-                      <li>Crear proyectos: {String(context.global_permissions.can_create_projects)}</li>
-                      <li>Gestionar agentes: {String(context.global_permissions.can_manage_agent_catalog)}</li>
-                      <li>Gestionar seguridad: {String(context.global_permissions.can_manage_security)}</li>
-                    </ul>
-                  ) : (
-                    <p>Sin datos</p>
-                  )}
-                </article>
-                <article className="panel metric">
-                  <h4>KPIs (30 dias)</h4>
-                  {dashboard ? (
-                    <ul className="kpi-list">
-                      <li><span>Proyectos</span><b>{dashboard.kpis.projects_count}</b></li>
-                      <li><span>Etapas bloqueadas</span><b>{dashboard.kpis.blocked_stages_count}</b></li>
-                      <li><span>Runs fallidas (7d)</span><b>{dashboard.kpis.failed_runs_count_7d}</b></li>
-                      <li><span>Runs en cola</span><b>{dashboard.kpis.queued_runs_count}</b></li>
-                      <li><span>Artifacts publicados</span><b>{dashboard.kpis.published_artifacts_count}</b></li>
-                      <li><span>Costo IA</span><b>${dashboard.kpis.cost_usd_total_30d.toFixed(4)}</b></li>
-                    </ul>
-                  ) : (
-                    <p>Sin datos</p>
-                  )}
-                </article>
-              </section>
-            ) : null}
+        <section className="source-status-grid">
+          <article className={`source-chip ${sourceStatus.context}`}>
+            <span>Contexto</span>
+            <b>{sourceStatus.context.toUpperCase()}</b>
+          </article>
+          <article className={`source-chip ${sourceStatus.dashboard}`}>
+            <span>Dashboard</span>
+            <b>{sourceStatus.dashboard.toUpperCase()}</b>
+          </article>
+          <article className={`source-chip ${sourceStatus.costs}`}>
+            <span>Costos</span>
+            <b>{sourceStatus.costs.toUpperCase()}</b>
+          </article>
+        </section>
 
-            {activeTab === "projects" ? (
-              <section className="cards-2">
-                <article className="panel">
-                  <h4>Proyectos visibles</h4>
-                  {context?.projects?.length ? (
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>ID</th>
-                          <th>Key</th>
-                          <th>Nombre</th>
-                          <th>Rol</th>
-                          <th>Estado</th>
+        {error ? <p className="error floating-error">{error}</p> : null}
+
+        {activeTab === "overview" ? (
+          <>
+            <section className="kpi-grid">
+              <article className="panel kpi-card">
+                <span>Proyectos activos</span>
+                <strong>{dashboard?.kpis.projects_count ?? projectCards.length ?? 0}</strong>
+              </article>
+              <article className="panel kpi-card">
+                <span>Etapas bloqueadas</span>
+                <strong>{dashboard?.kpis.blocked_stages_count ?? 0}</strong>
+              </article>
+              <article className="panel kpi-card">
+                <span>Runs fallidas (7d)</span>
+                <strong>{dashboard?.kpis.failed_runs_count_7d ?? 0}</strong>
+              </article>
+              <article className="panel kpi-card">
+                <span>Costo IA (30d)</span>
+                <strong>{formatCurrency(dashboard?.kpis.cost_usd_total_30d ?? costs?.total_cost_usd ?? 0)}</strong>
+              </article>
+            </section>
+
+            <section className="split-grid">
+              <article className="panel">
+                <h4>Pipeline de proyectos</h4>
+                {projectCards.length ? (
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Proyecto</th>
+                        <th>Rol</th>
+                        <th>Estado</th>
+                        <th>Actualizado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {projectCards.map((p) => (
+                        <tr key={p.project_id}>
+                          <td>
+                            <strong>{p.project_key}</strong>
+                            <br />
+                            {p.project_name}
+                          </td>
+                          <td>{p.member_role}</td>
+                          <td>{p.lifecycle_status}</td>
+                          <td>{formatDate(p.updated_at)}</td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {context.projects.map((p) => (
-                          <tr key={p.project_id}>
-                            <td>{p.project_id}</td>
-                            <td>{p.project_key}</td>
-                            <td>{p.project_name}</td>
-                            <td>{p.member_role}</td>
-                            <td>{p.lifecycle_status}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : (
-                    <p>No hay proyectos asignados.</p>
-                  )}
-                </article>
-              </section>
-            ) : null}
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p className="subtle">Sin proyectos visibles para este usuario.</p>
+                )}
+              </article>
 
-            {activeTab === "costs" ? (
-              <section className="cards-2">
-                <article className="panel">
-                  <h4>Filtro de costos</h4>
-                  <div className="inline">
-                    <input
-                      value={projectIdFilter}
-                      onChange={(e) => setProjectIdFilter(e.target.value)}
-                      placeholder="Project ID (opcional)"
-                    />
-                    <button onClick={() => void loadData()} disabled={loading}>
-                      Recalcular
-                    </button>
+              <article className="panel">
+                <h4>Distribucion de costos por proveedor</h4>
+                {costs?.by_provider?.length ? (
+                  <div className="provider-bars">
+                    {costs.by_provider.map((item) => {
+                      const width = providerTotal > 0 ? (item.total_cost_usd / providerTotal) * 100 : 0;
+                      return (
+                        <div key={item.provider} className="provider-row">
+                          <div className="provider-top">
+                            <span>{item.provider}</span>
+                            <span>{formatCurrency(item.total_cost_usd)}</span>
+                          </div>
+                          <div className="bar-track">
+                            <div className="bar-fill" style={{ width: `${Math.max(width, 3)}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                </article>
-                <article className="panel">
-                  <h4>Costos por proveedor</h4>
-                  {costs ? (
-                    <>
-                      <p className="total">
-                        Total: <b>${costs.total_cost_usd.toFixed(6)}</b> en {costs.total_runs_count} runs
-                      </p>
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>Proveedor</th>
-                            <th>Runs</th>
-                            <th>Costo USD</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {costs.by_provider.map((item) => (
-                            <tr key={item.provider}>
-                              <td>{item.provider}</td>
-                              <td>{item.runs_count}</td>
-                              <td>${item.total_cost_usd.toFixed(6)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </>
-                  ) : (
-                    <p>Sin costos</p>
-                  )}
-                </article>
-              </section>
-            ) : null}
+                ) : (
+                  <p className="subtle">Sin costos disponibles en el periodo.</p>
+                )}
+              </article>
+            </section>
+          </>
+        ) : null}
 
-            {activeTab === "ideas" ? (
-              <section className="cards-2">
-                <article className="panel">
-                  <h4>Ideas Workspace</h4>
-                  <p className="subtle">Proximo modulo: captura de ideas, priorizacion y conversion a proyecto.</p>
-                  <ul className="flags">
-                    <li>Formulario de idea con impacto y prioridad</li>
-                    <li>Estados: nueva, evaluacion, aprobada, en_proyecto</li>
-                    <li>Boton: Convertir idea a proyecto</li>
-                  </ul>
-                </article>
-              </section>
+        {activeTab === "projects" ? (
+          <section className="cards-2">
+            {projectCards.map((project) => (
+              <article className="panel project-tile" key={project.project_id}>
+                <h4>{project.project_name}</h4>
+                <p>{project.project_key}</p>
+                <div className="tile-meta">
+                  <span>Rol: {project.member_role}</span>
+                  <span>Estado: {project.lifecycle_status}</span>
+                </div>
+                <small>Actualizado: {formatDate(project.updated_at)}</small>
+              </article>
+            ))}
+            {!projectCards.length ? (
+              <article className="panel">
+                <p>No hay proyectos para mostrar.</p>
+              </article>
             ) : null}
+          </section>
+        ) : null}
 
-            {activeTab === "agents" ? (
-              <section className="cards-2">
-                <article className="panel">
-                  <h4>Agent Operations</h4>
-                  <p className="subtle">Proximo modulo: health de agentes, runs, errores y productividad por modulo.</p>
-                  <ul className="flags">
-                    <li>Catalogo de agentes por dominio</li>
-                    <li>Rendimiento por etapa</li>
-                    <li>Trazabilidad de errores y retrys</li>
-                  </ul>
-                </article>
-              </section>
-            ) : null}
-        </>
+        {activeTab === "costs" ? (
+          <section className="cards-2">
+            <article className="panel">
+              <h4>Filtro de costos</h4>
+              <div className="inline">
+                <input
+                  value={projectIdFilter}
+                  onChange={(e) => setProjectIdFilter(e.target.value)}
+                  placeholder="Project ID (opcional)"
+                />
+                <button onClick={() => void loadData()} disabled={loading}>
+                  Recalcular
+                </button>
+              </div>
+            </article>
+            <article className="panel">
+              <h4>Resumen economico</h4>
+              <p className="total">
+                Total 30d: <b>{formatCurrency(costs?.total_cost_usd ?? 0)}</b>
+              </p>
+              <p className="subtle">Runs: {costs?.total_runs_count ?? 0}</p>
+            </article>
+          </section>
+        ) : null}
 
-        {error && <p className="error floating-error">{error}</p>}
+        {activeTab === "ideas" ? (
+          <section className="cards-2">
+            <article className="panel coming-soon">
+              <h4>Ideas Lab</h4>
+              <p>Modulo para capturar, priorizar y convertir ideas en proyectos ejecutables.</p>
+              <ul className="flags">
+                <li>Captura estructurada de idea</li>
+                <li>Scoring de impacto y esfuerzo</li>
+                <li>Boton convertir a proyecto</li>
+              </ul>
+            </article>
+          </section>
+        ) : null}
+
+        {activeTab === "agents" ? (
+          <section className="cards-2">
+            <article className="panel coming-soon">
+              <h4>Agent Operations</h4>
+              <p>Modulo para operar agentes por etapa, trazabilidad y costo por salida.</p>
+              <ul className="flags">
+                <li>Catalogo por modulo y proveedor</li>
+                <li>Monitoreo de ejecuciones</li>
+                <li>Calidad y costo por agente</li>
+              </ul>
+            </article>
+          </section>
+        ) : null}
       </main>
     </div>
   );
