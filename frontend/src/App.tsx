@@ -138,7 +138,16 @@ type AuthTokenResponse = {
   expires_in_seconds: number;
 };
 
-type TabName = "overview" | "projects" | "costs" | "ideas" | "agents";
+type TextIaMessage = {
+  role: "user" | "assistant";
+  content: string;
+  runId?: number;
+  provider?: string;
+  model?: string;
+  costUsd?: number | null;
+};
+
+type TabName = "overview" | "projects" | "costs" | "ideas" | "agents" | "ia_generator";
 type SourceName = "context" | "dashboard" | "costs";
 type SourceStatus = Record<SourceName, "idle" | "ok" | "error">;
 type ApiStatus = "unknown" | "online" | "offline";
@@ -249,6 +258,16 @@ function App() {
   const [imgLoading, setImgLoading] = useState(false);
   const [imgError, setImgError] = useState("");
   const [imgResult, setImgResult] = useState<AiImageGenerateResponse | null>(null);
+
+  const [iaProjectId, setIaProjectId] = useState("");
+  const [iaAgentId, setIaAgentId] = useState("");
+  const [iaProvider, setIaProvider] = useState("auto");
+  const [iaModel, setIaModel] = useState("");
+  const [iaSystemPrompt, setIaSystemPrompt] = useState("");
+  const [iaPrompt, setIaPrompt] = useState("");
+  const [iaMessages, setIaMessages] = useState<TextIaMessage[]>([]);
+  const [iaLoading, setIaLoading] = useState(false);
+  const [iaError, setIaError] = useState("");
 
   const [runsData, setRunsData] = useState<AgentRunItem[]>([]);
   const [runsLoading, setRunsLoading] = useState(false);
@@ -463,6 +482,13 @@ function App() {
       void loadRuns();
     } else if (activeTab === "ideas" && projectsData.length === 0) {
       void loadProjects();
+    } else if (activeTab === "ia_generator") {
+      if (projectsData.length === 0) {
+        void loadProjects();
+      }
+      if (agentsData.length === 0) {
+        void loadAgents();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, token]);
@@ -639,6 +665,58 @@ function App() {
     }
   }
 
+  async function runTextIaIteration() {
+    const currentToken = token.trim();
+    if (!currentToken || !iaProjectId.trim() || !iaAgentId.trim() || !iaPrompt.trim()) return;
+
+    const userMessage: TextIaMessage = { role: "user", content: iaPrompt.trim() };
+    const history = [...iaMessages, userMessage]
+      .slice(-8)
+      .map((m) => `${m.role === "user" ? "Usuario" : "Asistente"}: ${m.content}`)
+      .join("\n");
+    const promptForModel = `Conversacion previa:\n${history}\n\nMensaje actual del usuario:\n${iaPrompt.trim()}`;
+
+    setIaLoading(true);
+    setIaError("");
+    setIaMessages((prev) => [...prev, userMessage]);
+
+    try {
+      const res = await fetch(apiUrl("/ai/text/generate"), {
+        method: "POST",
+        headers: buildAuthHeaders(currentToken),
+        body: JSON.stringify({
+          project_id: Number(iaProjectId),
+          agent_id: Number(iaAgentId),
+          prompt: promptForModel,
+          system_prompt: iaSystemPrompt.trim() || null,
+          provider_preference: iaProvider,
+          model_name: iaModel.trim() || null,
+        }),
+      });
+      if (!res.ok) throw new Error(`text-ia ${res.status}`);
+      const data = (await res.json()) as AiTextGenerateResponse;
+
+      setIaMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: data.text || "(sin respuesta)",
+          runId: data.run_id,
+          provider: data.provider,
+          model: data.model_name,
+          costUsd: data.cost_usd,
+        },
+      ]);
+      setIaPrompt("");
+      await Promise.all([loadData(), loadRuns()]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "error";
+      setIaError(message);
+    } finally {
+      setIaLoading(false);
+    }
+  }
+
   async function updateStage(stage: StageItem, status: string, progressPercent: number) {
     const currentToken = token.trim();
     if (!currentToken) return;
@@ -710,6 +788,14 @@ function App() {
     setImgPrompt("");
     setImgError("");
     setImgResult(null);
+    setIaProjectId("");
+    setIaAgentId("");
+    setIaProvider("auto");
+    setIaModel("");
+    setIaSystemPrompt("");
+    setIaPrompt("");
+    setIaMessages([]);
+    setIaError("");
     setActiveTab("overview");
     setApiStatus("unknown");
     setSourceStatus({ context: "idle", dashboard: "idle", costs: "idle" });
@@ -795,6 +881,9 @@ function App() {
           </button>
           <button className={activeTab === "agents" ? "active" : ""} onClick={() => setActiveTab("agents")}>
             Agents
+          </button>
+          <button className={activeTab === "ia_generator" ? "active" : ""} onClick={() => setActiveTab("ia_generator")}>
+            Generador IA
           </button>
         </nav>
 
@@ -1328,6 +1417,97 @@ function App() {
                   </table>
                 </>
               ) : null}
+            </article>
+          </section>
+        ) : null}
+
+        {activeTab === "ia_generator" ? (
+          <section className="cards-2">
+            <article className="panel">
+              <h4>Generador IA - Text IA</h4>
+              <p className="subtle">Selecciona motor, contexto de proyecto/agente y ejecuta iteraciones de texto.</p>
+              <div className="stack">
+                <div className="inline-2">
+                  <select value={iaProjectId} onChange={(e) => setIaProjectId(e.target.value)}>
+                    <option value="">Project ID</option>
+                    {projectsData.map((project) => (
+                      <option key={project.project_id} value={project.project_id}>
+                        {project.project_id} - {project.project_key}
+                      </option>
+                    ))}
+                  </select>
+                  <select value={iaAgentId} onChange={(e) => setIaAgentId(e.target.value)}>
+                    <option value="">Agente especializado</option>
+                    {agentsData.map((agent) => (
+                      <option key={agent.agent_id} value={agent.agent_id}>
+                        {agent.agent_id} - {agent.agent_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="inline-2">
+                  <select value={iaProvider} onChange={(e) => setIaProvider(e.target.value)}>
+                    <option value="auto">auto (fallback OpenAI a Gemini)</option>
+                    <option value="openai">openai</option>
+                    <option value="gemini">gemini</option>
+                  </select>
+                  <select value={iaModel} onChange={(e) => setIaModel(e.target.value)}>
+                    <option value="">modelo por defecto</option>
+                    <option value="gpt-5.2">gpt-5.2</option>
+                    <option value="gemini-3-pro-preview">gemini-3-pro-preview</option>
+                  </select>
+                </div>
+
+                <textarea
+                  rows={3}
+                  placeholder="System prompt (opcional)"
+                  value={iaSystemPrompt}
+                  onChange={(e) => setIaSystemPrompt(e.target.value)}
+                />
+                <textarea
+                  rows={4}
+                  placeholder="Escribe tu mensaje para iterar con el modelo"
+                  value={iaPrompt}
+                  onChange={(e) => setIaPrompt(e.target.value)}
+                />
+                <div className="inline-2">
+                  <button onClick={() => void runTextIaIteration()} disabled={iaLoading || !iaProjectId || !iaAgentId || !iaPrompt.trim()}>
+                    {iaLoading ? "Generando..." : "Enviar a Text IA"}
+                  </button>
+                  <button
+                    className="ghost"
+                    onClick={() => {
+                      setIaMessages([]);
+                      setIaError("");
+                    }}
+                  >
+                    Nueva iteracion
+                  </button>
+                </div>
+              </div>
+              {iaError ? <p className="error">{iaError}</p> : null}
+            </article>
+
+            <article className="panel">
+              <h4>Conversacion</h4>
+              {iaMessages.length ? (
+                <div className="chat-list">
+                  {iaMessages.map((msg, idx) => (
+                    <div key={`${msg.role}-${idx}`} className={`chat-bubble ${msg.role === "assistant" ? "assistant" : "user"}`}>
+                      <p className="chat-role">{msg.role === "assistant" ? "Asistente IA" : "Tu"}</p>
+                      <p>{msg.content}</p>
+                      {msg.role === "assistant" && msg.runId ? (
+                        <small>
+                          run {msg.runId} | {msg.provider} | {msg.model} | {formatCurrency(msg.costUsd ?? 0)}
+                        </small>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="subtle">Sin mensajes aun. Envia el primer prompt.</p>
+              )}
             </article>
           </section>
         ) : null}

@@ -610,6 +610,46 @@ button.compact {
   display: block;
 }
 
+.chat-list {
+  display: grid;
+  gap: 10px;
+  max-height: 540px;
+  overflow: auto;
+}
+
+.chat-bubble {
+  border-radius: 12px;
+  border: 1px solid #2a4c7d;
+  padding: 10px;
+}
+
+.chat-bubble.user {
+  background: rgba(17, 45, 86, 0.78);
+}
+
+.chat-bubble.assistant {
+  background: rgba(7, 31, 60, 0.92);
+}
+
+.chat-bubble p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.chat-bubble small {
+  display: block;
+  margin-top: 8px;
+  color: #9cb3d8;
+  font-size: 0.78rem;
+}
+
+.chat-role {
+  margin-bottom: 6px !important;
+  color: #8ab2f2;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
 .tile-meta {
   display: grid;
   gap: 4px;
