@@ -152,8 +152,13 @@ function App() {
   if (!token) {
     return (
       <section className="auth-screen">
+        <div className="auth-particles" aria-hidden="true" />
         <div className="auth-card">
           <article className="auth-form-side">
+            <div className="auth-mini-brand">
+              <div className="auth-mini-mark">IA</div>
+              <span>mktautomations platform</span>
+            </div>
             <h1>Acceder</h1>
             <p>Bienvenido de nuevo. Ingresa para entrar a tu panel.</p>
             <form onSubmit={loginWithEmail} className="stack">
@@ -179,6 +184,7 @@ function App() {
                 {authLoading ? "Ingresando..." : "Iniciar sesion"}
               </button>
             </form>
+            <p className="auth-help">Acceso interno. Si no tienes permisos, solicita alta de usuario.</p>
             {authError ? <p className="error">{authError}</p> : null}
           </article>
           <article className="auth-brand-side">

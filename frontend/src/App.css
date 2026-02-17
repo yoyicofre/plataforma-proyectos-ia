@@ -23,10 +23,45 @@
   display: grid;
   place-items: center;
   padding: 24px;
+  position: relative;
+  overflow: hidden;
   background:
     radial-gradient(circle at 10% 15%, rgba(28, 124, 255, 0.2), transparent 28%),
     radial-gradient(circle at 90% 80%, rgba(21, 185, 124, 0.2), transparent 28%),
     linear-gradient(135deg, #02122e 0%, #031a43 45%, #07172f 100%);
+}
+
+.auth-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image:
+    radial-gradient(circle at 8% 20%, #6ca2ff 1.2px, transparent 1.2px),
+    radial-gradient(circle at 18% 62%, #4f85f0 1.2px, transparent 1.2px),
+    radial-gradient(circle at 33% 33%, #4bc5d6 1.2px, transparent 1.2px),
+    radial-gradient(circle at 56% 72%, #8db0ff 1.2px, transparent 1.2px),
+    radial-gradient(circle at 75% 42%, #5aa1ff 1.2px, transparent 1.2px),
+    radial-gradient(circle at 87% 18%, #3f82f5 1.2px, transparent 1.2px);
+  animation: drift 20s linear infinite;
+}
+
+.auth-particles::before,
+.auth-particles::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(120deg, transparent 49.5%, rgba(110, 155, 255, 0.2) 50%, transparent 50.5%),
+    linear-gradient(40deg, transparent 49.5%, rgba(79, 127, 217, 0.2) 50%, transparent 50.5%);
+  background-size: 240px 180px, 280px 210px;
+  animation: pulseLines 8s ease-in-out infinite;
+}
+
+.auth-particles::after {
+  opacity: 0.4;
+  filter: blur(1px);
+  animation-duration: 12s;
 }
 
 .auth-card {
@@ -44,6 +79,30 @@
 .auth-form-side {
   padding: 38px 42px;
   background: rgba(2, 16, 40, 0.88);
+}
+
+.auth-mini-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  color: #aac2eb;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+}
+
+.auth-mini-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  color: #dff2ff;
+  background: linear-gradient(135deg, #1d58d8, #33a3ff);
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
 }
 
 .auth-form-side h1 {
@@ -71,6 +130,7 @@
 .auth-form-side button {
   margin-top: 10px;
   background: linear-gradient(90deg, #2264ff 0%, #4ab0ff 100%);
+  box-shadow: 0 10px 30px rgba(50, 123, 255, 0.35);
 }
 
 .auth-brand-side {
@@ -100,6 +160,12 @@
 .auth-brand-side p {
   margin: 0;
   color: #c4d6f6;
+}
+
+.auth-help {
+  margin-top: 14px;
+  color: #95abce;
+  font-size: 0.82rem;
 }
 
 .sidebar {
@@ -374,5 +440,29 @@ th {
   .cards-2,
   .login-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@keyframes pulseLines {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.01);
+  }
+}
+
+@keyframes drift {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+  100% {
+    transform: translateY(0px);
   }
 }
