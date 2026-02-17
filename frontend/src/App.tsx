@@ -192,6 +192,11 @@ function App() {
             <p className="tag">Plataforma IA</p>
             <h2>WELCOME BACK!</h2>
             <p>Panel operativo de proyectos, agentes y costos en tiempo real.</p>
+            <img
+              src="/automationia-logo-horizontal.svg"
+              alt="automationIA horizontal logo"
+              className="auth-horizontal-logo"
+            />
           </article>
         </div>
       </section>
@@ -202,10 +207,10 @@ function App() {
     <div className="platform-shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-mark">IA</div>
+          <img src="/automationia-logo-icon.svg" alt="automationIA icon" className="brand-mark-image" />
           <div>
-            <h1>Plataforma IA</h1>
-            <p>Control Center</p>
+            <h1>automationIA</h1>
+            <p>Project Control Center</p>
           </div>
         </div>
 

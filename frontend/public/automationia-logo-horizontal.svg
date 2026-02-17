@@ -1,0 +1,31 @@
+<svg width="820" height="220" viewBox="0 0 820 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="hBg" x1="18" y1="12" x2="198" y2="208" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1F47"/>
+      <stop offset="1" stop-color="#0B3B73"/>
+    </linearGradient>
+    <linearGradient id="hAccent" x1="38" y1="38" x2="178" y2="182" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3CC9FF"/>
+      <stop offset="1" stop-color="#1F6BFF"/>
+    </linearGradient>
+    <linearGradient id="hSoft" x1="56" y1="58" x2="160" y2="162" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#74F2D3"/>
+      <stop offset="1" stop-color="#33A1FF"/>
+    </linearGradient>
+    <linearGradient id="hText" x1="252" y1="64" x2="746" y2="162" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E5F1FF"/>
+      <stop offset="1" stop-color="#83B8FF"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="192" height="192" rx="48" fill="url(#hBg)"/>
+  <path d="M50 154L78 68H88L116 154H105L100 136H65L60 154H50ZM68 125H91L80 89L68 125Z" fill="url(#hAccent)"/>
+  <rect x="124" y="68" width="11" height="86" rx="4" fill="url(#hSoft)"/>
+  <rect x="117" y="68" width="25" height="11" rx="4" fill="url(#hAccent)"/>
+  <circle cx="42" cy="56" r="3.5" fill="#67CEFF"/>
+  <circle cx="172" cy="48" r="3.2" fill="#72EBD8"/>
+  <circle cx="176" cy="170" r="3.5" fill="#5CA5FF"/>
+  <circle cx="46" cy="175" r="3.2" fill="#64C5FF"/>
+
+  <text x="238" y="114" fill="url(#hText)" font-family="Space Grotesk, Manrope, Segoe UI, sans-serif" font-size="62" font-weight="700" letter-spacing="1.2">automationIA</text>
+  <text x="240" y="150" fill="#8CB4EA" font-family="Manrope, Segoe UI, sans-serif" font-size="25" font-weight="600" letter-spacing="3.2">INTELLIGENT PROJECT PLATFORM</text>
+</svg>

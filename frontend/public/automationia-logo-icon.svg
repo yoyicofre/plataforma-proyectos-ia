@@ -1,0 +1,24 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="iconBg" x1="32" y1="24" x2="220" y2="232" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1F47"/>
+      <stop offset="1" stop-color="#0B3B73"/>
+    </linearGradient>
+    <linearGradient id="iconAccent" x1="58" y1="56" x2="202" y2="204" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3CC9FF"/>
+      <stop offset="1" stop-color="#1F6BFF"/>
+    </linearGradient>
+    <linearGradient id="iconSoft" x1="76" y1="80" x2="180" y2="184" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#74F2D3"/>
+      <stop offset="1" stop-color="#33A1FF"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="224" height="224" rx="56" fill="url(#iconBg)"/>
+  <path d="M66 186L98 86H109L141 186H128L121 165H86L79 186H66ZM90 152H117L104 110L90 152Z" fill="url(#iconAccent)"/>
+  <rect x="151" y="86" width="13" height="100" rx="4" fill="url(#iconSoft)"/>
+  <rect x="143" y="86" width="29" height="13" rx="4" fill="url(#iconAccent)"/>
+  <circle cx="56" cy="74" r="4" fill="#67CEFF"/>
+  <circle cx="201" cy="58" r="3.5" fill="#72EBD8"/>
+  <circle cx="208" cy="196" r="4" fill="#5CA5FF"/>
+  <circle cx="62" cy="199" r="3.5" fill="#64C5FF"/>
+</svg>
