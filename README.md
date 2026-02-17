@@ -197,7 +197,7 @@ Deploy frontend en S3:
 Deploy backend en Lambda (ZIP):
 
 - handler: `lambda_handler.handler`
-- scripts: `scripts/package_lambda.ps1`, `scripts/deploy_lambda.ps1`
+- scripts: `scripts/package_lambda_layer.ps1`, `scripts/package_lambda.ps1`, `scripts/deploy_lambda.ps1`
 - runbook: `docs/operations/lambda-deploy.md`
 - dominio actual: `https://api.mktautomations.com`
 
@@ -209,7 +209,9 @@ CI/CD backend (GitHub Actions):
 
 - quality gate: `.github/workflows/ci.yml`
 - deploy Lambda: `.github/workflows/deploy-lambda.yml`
+- deploy frontend: `.github/workflows/deploy-frontend.yml`
 - guia: `docs/operations/cicd.md`
+- plantilla reusable (nuevos proyectos): `docs/operations/project-bootstrap-template.md`
 
 Secrets locales:
 

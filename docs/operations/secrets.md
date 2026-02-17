@@ -39,3 +39,7 @@ Si una clave fue compartida por chat/captura, asumir compromiso y rotar inmediat
 - `JWT_SECRET` debe ser no-default y de al menos 32 caracteres.
 - `DEV_BOOTSTRAP_KEY=dev-bootstrap-key` está bloqueado en `prod`.
 - Endpoint `POST /auth/token` deshabilitado en `prod`.
+
+## Reuso para nuevos proyectos
+
+- Usar checklist base: `docs/operations/project-bootstrap-template.md`

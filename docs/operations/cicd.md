@@ -10,6 +10,7 @@
 Este template incluye workflows en:
 - `.github/workflows/ci.yml`
 - `.github/workflows/deploy-lambda.yml` (deploy backend Lambda)
+- `.github/workflows/deploy-frontend.yml` (deploy frontend S3/CloudFront)
 
 Ajusta:
 - versión de Python
@@ -53,3 +54,11 @@ El workflow `deploy-lambda.yml` soporta:
 - `OPENAI_MODEL_IMAGE`
 - `GEMINI_MODEL_TEXT`
 - `GEMINI_MODEL_IMAGE`
+- `LAMBDA_LAYER_VERSIONS_TO_KEEP` (ej: `5`)
+- `FRONTEND_S3_BUCKET`
+- `CLOUDFRONT_DISTRIBUTION_ID` (opcional pero recomendado)
+- `VITE_API_BASE_URL` (ej: `https://api.mktautomations.com`)
+
+## Reuso para nuevos proyectos
+
+- Usar checklist base: `docs/operations/project-bootstrap-template.md`

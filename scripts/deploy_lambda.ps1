@@ -12,6 +12,15 @@ param(
   [string]$ZipPath = ".build/lambda/package.zip",
 
   [Parameter(Mandatory = $false)]
+  [string]$LayerName = "plataforma-ia-deps",
+
+  [Parameter(Mandatory = $false)]
+  [string]$LayerZipPath = ".build/lambda/layer.zip",
+
+  [Parameter(Mandatory = $false)]
+  [int]$LayerVersionsToKeep = 5,
+
+  [Parameter(Mandatory = $false)]
   [int]$Timeout = 30,
 
   [Parameter(Mandatory = $false)]
@@ -39,6 +48,9 @@ if (-not $aws) {
 
 if (-not (Test-Path $ZipPath)) {
   throw "Zip package not found: $ZipPath. Run scripts/package_lambda.ps1 first."
+}
+if (-not (Test-Path $LayerZipPath)) {
+  throw "Layer zip not found: $LayerZipPath. Run scripts/package_lambda_layer.ps1 first."
 }
 
 function Get-EnvValueOrEmpty([string]$name) {
@@ -123,6 +135,48 @@ $envJson = @{ Variables = $nonEmptyEnv } | ConvertTo-Json -Compress
 $tmpEnv = ".build/lambda/lambda-env.json"
 $envJson | Out-File -FilePath $tmpEnv -Encoding ascii
 
+Write-Host "Publishing Lambda layer: $LayerName"
+$layerArn = (
+  & $aws lambda publish-layer-version `
+    --layer-name $LayerName `
+    --zip-file fileb://$LayerZipPath `
+    --compatible-runtimes python3.12 `
+    --region $Region `
+    --query "LayerVersionArn" `
+    --output text
+).Trim()
+
+if ($LayerVersionsToKeep -lt 1) {
+  $LayerVersionsToKeep = 1
+}
+$currentLayerVersion = [int]($layerArn.Split(":")[-1])
+Write-Host "Applying layer retention policy (keep last $LayerVersionsToKeep versions)..."
+$rawVersions = (
+  & $aws lambda list-layer-versions `
+    --layer-name $LayerName `
+    --region $Region `
+    --query "LayerVersions[].Version" `
+    --output text
+)
+$versions = @()
+if ($rawVersions) {
+  foreach ($v in ($rawVersions -split "\s+")) {
+    if ($v -and $v.Trim() -match "^\d+$") {
+      $versions += [int]$v.Trim()
+    }
+  }
+}
+$versions = $versions | Sort-Object -Descending
+$keep = $versions | Select-Object -First $LayerVersionsToKeep
+$toDelete = $versions | Where-Object { $_ -notin $keep -and $_ -ne $currentLayerVersion }
+foreach ($ver in $toDelete) {
+  Write-Host "Deleting old layer version: $LayerName:$ver"
+  & $aws lambda delete-layer-version `
+    --layer-name $LayerName `
+    --version-number $ver `
+    --region $Region | Out-Null
+}
+
 Write-Host "Creating/updating Lambda function: $FunctionName"
 $lambdaGetExit = 1
 $previousErrorAction = $ErrorActionPreference
@@ -143,6 +197,7 @@ if ($lambdaGetExit -eq 0) {
     --runtime python3.12 `
     --timeout $Timeout `
     --memory-size $MemorySize `
+    --layers $layerArn `
     --environment file://$tmpEnv `
     --region $Region | Out-Null
 } else {
@@ -154,6 +209,7 @@ if ($lambdaGetExit -eq 0) {
     --zip-file fileb://$ZipPath `
     --timeout $Timeout `
     --memory-size $MemorySize `
+    --layers $layerArn `
     --environment file://$tmpEnv `
     --region $Region | Out-Null
 }

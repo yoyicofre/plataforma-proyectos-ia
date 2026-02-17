@@ -21,6 +21,9 @@ $env:VITE_API_BASE_URL="https://api.midominio.com"
 Script:
 - `scripts/deploy_frontend_s3.ps1`
 
+Workflow CI/CD:
+- `.github/workflows/deploy-frontend.yml`
+
 Uso:
 ```powershell
 ./scripts/deploy_frontend_s3.ps1 -BucketName my-frontend-bucket
@@ -34,3 +37,7 @@ Con invalidacion CloudFront:
 ## Notas
 - El script ejecuta `npm install`, `npm run build` y `aws s3 sync --delete`.
 - Si usas rutas SPA avanzadas, configura fallback de CloudFront/S3 a `index.html`.
+- En GitHub Environment define:
+  - `FRONTEND_S3_BUCKET` (requerido)
+  - `CLOUDFRONT_DISTRIBUTION_ID` (opcional)
+  - `VITE_API_BASE_URL` (recomendado)
